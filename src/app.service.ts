@@ -6,3 +6,10 @@ export class AppService {
     return 'Hello World!';
   }
 }
+
+@Injectable()
+export class HelloService {
+  getHello(): string {
+    return 'Hello NestJS!';
+  } 
+}

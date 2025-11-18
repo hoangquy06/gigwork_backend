@@ -1,0 +1,355 @@
+openapi: 3.0.3
+info:
+  title: GigWork Backend API
+  version: 1.0.0
+  description: REST API for signup, login, and role-based profile updates
+servers:
+  - url: http://localhost:3000
+tags:
+  - name: Auth
+  - name: Profile
+paths:
+  /auth/signup:
+    post:
+      tags:
+        - Auth
+      summary: Sign up with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignupResponse'
+        '409':
+          description: Conflict (duplicate email or phone if constrained)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '400':
+          description: Database error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatabaseErrorResponse'
+  /auth/login:
+    post:
+      tags:
+        - Auth
+      summary: Login with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /auth/profile:
+    get:
+      tags:
+        - Auth
+      summary: Get JWT payload profile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthProfileResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /profile/employee:
+    put:
+      tags:
+        - Profile
+      summary: Update employee profile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmployeeProfileUpdateRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeProfileResponse'
+        '400':
+          description: Bad Request (validation or email mismatch)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden (role conflict)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /profile/employer:
+    put:
+      tags:
+        - Profile
+      summary: Update employer profile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmployerProfileUpdateRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployerProfileResponse'
+        '400':
+          description: Bad Request (validation or email mismatch)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden (role conflict)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    SignupRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+      required:
+        - email
+        - password
+    SignupResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Đăng ký thành công
+        user_id:
+          type: integer
+        email:
+          type: string
+          format: email
+      required:
+        - message
+        - user_id
+        - email
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required:
+        - email
+        - password
+    LoginResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+      required:
+        - access_token
+    AuthProfileResponse:
+      type: object
+      properties:
+        user:
+          type: object
+          properties:
+            user_id:
+              type: integer
+            email:
+              type: string
+              format: email
+            role_worker:
+              type: boolean
+            role_employer:
+              type: boolean
+          required:
+            - user_id
+            - email
+    EmployeeProfileUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          pattern: '^\d{9,15}$'
+        birth_date:
+          type: string
+          format: date
+        gender:
+          type: string
+          enum: [male, female, other]
+      required:
+        - name
+        - email
+        - phone
+        - birth_date
+        - gender
+    EmployerProfileUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          pattern: '^\d{9,15}$'
+        company_name:
+          type: string
+        company_address:
+          type: string
+      required:
+        - name
+        - email
+        - phone
+        - company_name
+        - company_address
+    EmployeeProfileResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        role:
+          type: string
+          enum: [employee]
+        birth_date:
+          type: string
+          format: date
+        gender:
+          type: string
+          enum: [male, female, other]
+      required:
+        - id
+        - name
+        - email
+        - phone
+        - role
+        - birth_date
+        - gender
+    EmployerProfileResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        role:
+          type: string
+          enum: [employer]
+        company_name:
+          type: string
+        company_address:
+          type: string
+      required:
+        - id
+        - name
+        - email
+        - phone
+        - role
+        - company_name
+        - company_address
+    ErrorResponse:
+      type: object
+      properties:
+        statusCode:
+          type: integer
+        message:
+          type: string
+      required:
+        - statusCode
+        - message
+    DatabaseErrorResponse:
+      type: object
+      properties:
+        statusCode:
+          type: integer
+          example: 400
+        message:
+          type: string
+          example: Lỗi cơ sở dữ liệu
+        code:
+          type: string
+          example: 23502
+        detail:
+          type: string
