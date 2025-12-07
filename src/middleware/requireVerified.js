@@ -5,12 +5,23 @@ const prisma = new PrismaClient()
 async function requireVerified(req, res, next) {
   try {
     const userId = req.user && req.user.id
-    if (!userId) return res.status(401).json({ error: 'Unauthorized', code: 401 })
+    if (!userId)
+      return res
+        .status(401)
+        .type('application/problem+json')
+        .json({ type: 'about:blank', title: 'Unauthorized', status: 401, detail: 'Missing user', instance: req.originalUrl })
     const user = await prisma.user.findUnique({ where: { id: userId } })
-    if (!user || !user.isVerified) return res.status(403).json({ error: 'Email not verified', code: 403 })
+    if (!user || !user.isVerified)
+      return res
+        .status(403)
+        .type('application/problem+json')
+        .json({ type: 'about:blank', title: 'Forbidden', status: 403, detail: 'Email not verified', instance: req.originalUrl })
     return next()
   } catch (e) {
-    return res.status(500).json({ error: 'Server error', code: 500 })
+    return res
+      .status(500)
+      .type('application/problem+json')
+      .json({ type: 'about:blank', title: 'Server Error', status: 500, detail: 'Unexpected error', instance: req.originalUrl })
   }
 }
 
