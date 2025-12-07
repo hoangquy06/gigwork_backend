@@ -10,7 +10,7 @@ import authRoutes = require('./routes/authRoutes')
 import { AppModule } from './app.module'
 const swaggerUi = require('swagger-ui-express')
 const path = require('path')
-
+const fs = require('fs')
 async function bootstrap() {
   const app = await NestFactory.create(AppModule)
   app.setGlobalPrefix('api')
