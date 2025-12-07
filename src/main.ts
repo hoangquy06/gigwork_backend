@@ -11,6 +11,7 @@ import { AppModule } from './app.module'
 const swaggerUi = require('swagger-ui-express')
 const path = require('path')
 const fs = require('fs')
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule)
   app.setGlobalPrefix('api')
@@ -32,8 +33,15 @@ async function bootstrap() {
     swaggerUi.serve,
     swaggerUi.setup(null, { swaggerUrl: '/api/openapi.json', customOptions: { docExpansion: 'list', displayOperationId: true, filter: true, validatorUrl: null } })
   )
-  http.get('../dist/api/openapi.json', (req: any, res: any) => {
-    res.sendFile(path.resolve(__dirname, 'docs', 'openapi.json'))
+  http.get('/api/openapi.json', (req: any, res: any) => {
+    const candidates = [
+      path.resolve(process.cwd(), 'src', 'docs', 'openapi.json'),
+      path.resolve(process.cwd(), 'dist', 'docs', 'openapi.json'),
+      path.resolve(process.cwd(), 'docs', 'openapi.json')
+    ]
+    const found = candidates.find((p) => fs.existsSync(p))
+    if (found) return res.sendFile(found)
+    return res.status(404).json({ message: 'openapi.json not found', paths: candidates })
   })
   const port = process.env.PORT ? Number(process.env.PORT) : 3000
   await app.listen(port)
