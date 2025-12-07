@@ -8,6 +8,9 @@ import notificationsRoutes = require('./routes/notificationsRoutes')
 import profilesRoutes = require('./routes/profilesRoutes')
 import authRoutes = require('./routes/authRoutes')
 import { AppModule } from './app.module'
+const swaggerUi = require('swagger-ui-express')
+const spec = require('./docs/openapi.json')
+const path = require('path')
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule)
@@ -25,6 +28,14 @@ async function bootstrap() {
   http.use(authRoutes)
   const { errorHandler } = require('./middleware/errorHandler')
   http.use(errorHandler)
+  http.use(
+    '/api/docs',
+    swaggerUi.serve,
+    swaggerUi.setup(null, { swaggerUrl: '/api/openapi.json', customOptions: { docExpansion: 'list', displayOperationId: true, filter: true, validatorUrl: null } })
+  )
+  http.get('/api/openapi.json', (req: any, res: any) => {
+    res.sendFile(path.resolve(__dirname, 'docs', 'openapi.json'))
+  })
   const port = process.env.PORT ? Number(process.env.PORT) : 3000
   await app.listen(port)
 }

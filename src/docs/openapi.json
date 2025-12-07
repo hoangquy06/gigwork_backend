@@ -1,0 +1,284 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Gigwork Backend API",
+    "version": "v1",
+    "description": "REST API for Gigwork platform"
+  },
+  "servers": [
+    { "url": "http://localhost:3000" },
+    { "url": "https://gigwork-backend.onrender.com" }
+  ],
+  "tags": [
+    { "name": "Auth", "description": "Authentication and verification" },
+    { "name": "Users", "description": "User account and profile" },
+    { "name": "Jobs", "description": "Jobs and related resources" },
+    { "name": "Applications", "description": "Job applications workflow" },
+    { "name": "Reviews", "description": "User reviews" },
+    { "name": "Notifications", "description": "User notifications" }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "AuthPayload": {
+        "type": "object",
+        "properties": {
+          "token": { "type": "string" },
+          "user": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "integer" },
+              "email": { "type": "string" },
+              "isWorker": { "type": "boolean" },
+              "isEmployer": { "type": "boolean" },
+              "isVerified": { "type": "boolean" }
+}
+}
+      },
+      "AuthToken": {
+        "type": "object",
+        "properties": { "token": { "type": "string" } }
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string" },
+          "title": { "type": "string" },
+          "status": { "type": "integer" },
+          "detail": { "type": "string" },
+          "instance": { "type": "string" }
+        }
+      },
+      "AuthUnauthorized": { "allOf": [ { "$ref": "#/components/schemas/ProblemDetails" }, { "type": "object", "properties": { "errorCode": { "type": "string" }, "hint": { "type": "string" } } } ] },
+      "AuthBadRequest": { "allOf": [ { "$ref": "#/components/schemas/ProblemDetails" }, { "type": "object", "properties": { "errorCode": { "type": "string" }, "hint": { "type": "string" } } } ] },
+      "UsersUnauthorized": { "allOf": [ { "$ref": "#/components/schemas/ProblemDetails" }, { "type": "object", "properties": { "errorCode": { "type": "string" }, "hint": { "type": "string" } } } ] },
+      "JobsUnauthorized": { "allOf": [ { "$ref": "#/components/schemas/ProblemDetails" }, { "type": "object", "properties": { "errorCode": { "type": "string" }, "hint": { "type": "string" } } } ] },
+      "JobsForbidden": { "allOf": [ { "$ref": "#/components/schemas/ProblemDetails" }, { "type": "object", "properties": { "errorCode": { "type": "string" }, "hint": { "type": "string" } } } ] },
+      "JobsNotFound": { "allOf": [ { "$ref": "#/components/schemas/ProblemDetails" }, { "type": "object", "properties": { "errorCode": { "type": "string" }, "hint": { "type": "string" } } } ] },
+      "ApplicationsUnauthorized": { "allOf": [ { "$ref": "#/components/schemas/ProblemDetails" }, { "type": "object", "properties": { "errorCode": { "type": "string" }, "hint": { "type": "string" } } } ] },
+      "ApplicationsForbidden": { "allOf": [ { "$ref": "#/components/schemas/ProblemDetails" }, { "type": "object", "properties": { "errorCode": { "type": "string" }, "hint": { "type": "string" } } } ] },
+      "ApplicationsNotFound": { "allOf": [ { "$ref": "#/components/schemas/ProblemDetails" }, { "type": "object", "properties": { "errorCode": { "type": "string" }, "hint": { "type": "string" } } } ] },
+      "ReviewsBadRequest": { "allOf": [ { "$ref": "#/components/schemas/ProblemDetails" }, { "type": "object", "properties": { "errorCode": { "type": "string" }, "hint": { "type": "string" } } } ] },
+      "NotificationsUnauthorized": { "allOf": [ { "$ref": "#/components/schemas/ProblemDetails" }, { "type": "object", "properties": { "errorCode": { "type": "string" }, "hint": { "type": "string" } } } ] },
+      "Job": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "location": { "type": "string" },
+          "startDate": { "type": "string", "format": "date-time" },
+          "durationDays": { "type": "integer" },
+          "workerQuota": { "type": "integer" }
+        }
+      },
+      "UserMe": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "email": { "type": "string" },
+          "isVerified": { "type": "boolean" },
+          "isWorker": { "type": "boolean" },
+          "isEmployer": { "type": "boolean" }
+        }
+      }
+    }
+  ,
+  "responses": {
+    "AuthUnauthorized": {
+      "description": "Unauthorized",
+      "content": {
+        "application/problem+json": {
+          "schema": { "allOf": [ { "$ref": "#/components/schemas/ProblemDetails" }, { "type": "object", "properties": { "errorCode": { "type": "string" }, "hint": { "type": "string" } } } ] },
+          "examples": { "unauthorized": { "value": { "type": "about:blank", "title": "Unauthorized", "status": 401, "detail": "Missing or invalid token. Please sign in again", "instance": "/api/auth/login", "errorCode": "AUTH_UNAUTHORIZED", "hint": "Send Authorization: Bearer <token>" } } }
+        }
+      }
+    },
+    "AuthBadRequest": {
+      "description": "Bad Request",
+      "content": { "application/problem+json": { "schema": { "allOf": [ { "$ref": "#/components/schemas/ProblemDetails" }, { "type": "object", "properties": { "errorCode": { "type": "string" }, "hint": { "type": "string" } } } ] }, "examples": { "badRequest": { "value": { "type": "about:blank", "title": "Invalid credentials", "status": 400, "detail": "Email or password format is invalid", "instance": "/api/auth/register", "errorCode": "AUTH_BAD_REQUEST", "hint": "Verify email and password fields" } } } } }
+    },
+    "UsersUnauthorized": { "description": "Unauthorized", "content": { "application/problem+json": { "schema": { "allOf": [ { "$ref": "#/components/schemas/ProblemDetails" }, { "type": "object", "properties": { "errorCode": { "type": "string" }, "hint": { "type": "string" } } } ] } } } },
+    "JobsUnauthorized": { "description": "Unauthorized", "content": { "application/problem+json": { "schema": { "allOf": [ { "$ref": "#/components/schemas/ProblemDetails" }, { "type": "object", "properties": { "errorCode": { "type": "string" }, "hint": { "type": "string" } } } ] } } } },
+    "JobsForbidden": { "description": "Forbidden", "content": { "application/problem+json": { "schema": { "allOf": [ { "$ref": "#/components/schemas/ProblemDetails" }, { "type": "object", "properties": { "errorCode": { "type": "string" }, "hint": { "type": "string" } } } ] }, "examples": { "forbidden": { "value": { "type": "about:blank", "title": "Forbidden", "status": 403, "detail": "Email not verified or insufficient role", "instance": "/api/jobs", "errorCode": "JOBS_FORBIDDEN", "hint": "Verify email or use an employer account" } } } } } },
+    "JobsNotFound": { "description": "Not Found", "content": { "application/problem+json": { "schema": { "allOf": [ { "$ref": "#/components/schemas/ProblemDetails" }, { "type": "object", "properties": { "errorCode": { "type": "string" }, "hint": { "type": "string" } } } ] } } } },
+    "ApplicationsUnauthorized": { "description": "Unauthorized", "content": { "application/problem+json": { "schema": { "allOf": [ { "$ref": "#/components/schemas/ProblemDetails" }, { "type": "object", "properties": { "errorCode": { "type": "string" }, "hint": { "type": "string" } } } ] } } } },
+    "ApplicationsForbidden": { "description": "Forbidden", "content": { "application/problem+json": { "schema": { "allOf": [ { "$ref": "#/components/schemas/ProblemDetails" }, { "type": "object", "properties": { "errorCode": { "type": "string" }, "hint": { "type": "string" } } } ] } } } },
+    "ApplicationsNotFound": { "description": "Not Found", "content": { "application/problem+json": { "schema": { "allOf": [ { "$ref": "#/components/schemas/ProblemDetails" }, { "type": "object", "properties": { "errorCode": { "type": "string" }, "hint": { "type": "string" } } } ] } } } },
+    "ReviewsBadRequest": { "description": "Bad Request", "content": { "application/problem+json": { "schema": { "allOf": [ { "$ref": "#/components/schemas/ProblemDetails" }, { "type": "object", "properties": { "errorCode": { "type": "string" }, "hint": { "type": "string" } } } ] } } } },
+    "NotificationsUnauthorized": { "description": "Unauthorized", "content": { "application/problem+json": { "schema": { "allOf": [ { "$ref": "#/components/schemas/ProblemDetails" }, { "type": "object", "properties": { "errorCode": { "type": "string" }, "hint": { "type": "string" } } } ] } } } },
+    "ServerError": { "description": "Server Error", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/ProblemDetails" } } } }
+  }
+  }
+},
+  "paths": {
+    "/api/auth/register": {
+      "post": {
+        "tags": ["Auth"],
+        "operationId": "authRegister",
+        "summary": "Register a new account and receive JWT",
+        "description": "Requires email, password, and role flags (isWorker/isEmployer). At least one role must be true.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string" },
+                  "password": { "type": "string" },
+                  "isWorker": { "type": "boolean" },
+                  "isEmployer": { "type": "boolean" }
+                },
+                "required": ["email", "password", "isWorker", "isEmployer"]
+              },
+              "examples": {
+                "workerOnly": { "value": { "email": "user@example.com", "password": "pass12345", "isWorker": true, "isEmployer": false } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "headers": { "Location": { "schema": { "type": "string" } } },
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuthPayload" } } }
+          },
+          "400": { "$ref": "#/components/responses/AuthBadRequest" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "operationId": "authLogin",
+        "summary": "Login and receive JWT",
+        "description": "Returns a JWT and basic user info on successful authentication.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "properties": { "email": { "type": "string" }, "password": { "type": "string" } }, "required": ["email", "password"] },
+              "examples": { "login": { "value": { "email": "user@example.com", "password": "pass12345" } } }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuthPayload" } } } },
+          "401": { "$ref": "#/components/responses/AuthUnauthorized" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/auth/send-verification": {
+      "post": {
+        "tags": ["Auth"],
+        "operationId": "authSendVerification",
+        "summary": "Send verification email",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "202": { "description": "Accepted", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean" }, "link": { "type": "string" } } } } } },
+          "401": { "$ref": "#/components/responses/AuthUnauthorized" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/auth/verify-email": {
+      "get": {
+        "tags": ["Auth"],
+        "operationId": "authVerifyEmail",
+        "summary": "Verify email with token",
+        "parameters": [{ "name": "token", "in": "query", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "204": { "description": "No Content" },
+          "400": { "$ref": "#/components/responses/AuthBadRequest" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/users/me": {
+      "get": {
+        "tags": ["Users"],
+        "operationId": "usersGetMe",
+        "summary": "Get current user",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UserMe" } } } },
+          "401": { "$ref": "#/components/responses/UsersUnauthorized" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      },
+      "patch": {
+        "tags": ["Users"],
+        "summary": "Update current user",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "phone": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "OK" }, "401": { "$ref": "#/components/responses/UsersUnauthorized" } }
+      }
+    },
+    "/api/jobs": {
+      "get": {
+        "tags": ["Jobs"],
+        "operationId": "jobsList",
+        "summary": "List jobs",
+        "parameters": [
+          { "name": "location", "in": "query", "schema": { "type": "string" } },
+          { "name": "skills", "in": "query", "schema": { "type": "string" }, "description": "Comma separated" },
+          { "name": "date", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "from", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "to", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "startDate", "in": "query", "schema": { "type": "string", "format": "date" } }
+        ],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "type": "object", "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/Job" } }, "meta": { "type": "object", "properties": { "count": { "type": "integer" }, "filters": { "type": "object" } } } } } } } },
+          "500": { "description": "Server Error", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/ProblemDetails" } } } }
+        }
+      },
+      "post": {
+        "tags": ["Jobs"],
+        "summary": "Create job",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Job" } } } },
+        "responses": {
+          "201": { "description": "Created", "headers": { "Location": { "schema": { "type": "string" } } }, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Job" } } } },
+          "401": { "$ref": "#/components/responses/JobsUnauthorized" },
+          "403": { "$ref": "#/components/responses/JobsForbidden" }
+        }
+      }
+    },
+    "/api/jobs/{id}": {
+      "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+      "get": { "tags": ["Jobs"], "summary": "Get job by id", "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Job" } } } }, "404": { "$ref": "#/components/responses/JobsNotFound" } } },
+      "patch": { "tags": ["Jobs"], "summary": "Update job", "security": [{ "BearerAuth": [] }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Job" } } } }, "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Job" } } } }, "401": { "$ref": "#/components/responses/JobsUnauthorized" }, "403": { "$ref": "#/components/responses/JobsForbidden" }, "404": { "$ref": "#/components/responses/JobsNotFound" } } },
+      "delete": { "tags": ["Jobs"], "summary": "Delete job", "security": [{ "BearerAuth": [] }], "responses": { "204": { "description": "No Content" }, "401": { "$ref": "#/components/responses/JobsUnauthorized" }, "403": { "$ref": "#/components/responses/JobsForbidden" }, "404": { "$ref": "#/components/responses/JobsNotFound" } } }
+    },
+    "/api/jobs/{id}/sessions": {
+      "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+      "post": { "tags": ["Jobs"], "summary": "Create job session", "security": [{ "BearerAuth": [] }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "sessionDate": { "type": "string", "format": "date" }, "startTime": { "type": "string", "format": "date-time" }, "endTime": { "type": "string", "format": "date-time" } } } } } }, "responses": { "201": { "description": "Created" }, "401": { "$ref": "#/components/responses/JobsUnauthorized" }, "403": { "$ref": "#/components/responses/JobsForbidden" } } },
+      "get": { "tags": ["Jobs"], "summary": "List job sessions", "responses": { "200": { "description": "OK" } } }
+    },
+    "/api/jobs/{id}/skills": {
+      "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+      "post": { "tags": ["Jobs"], "summary": "Add required skills", "security": [{ "BearerAuth": [] }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "skills": { "type": "array", "items": { "type": "string" } } } } } } }, "responses": { "201": { "description": "Created" }, "401": { "$ref": "#/components/responses/JobsUnauthorized" }, "403": { "$ref": "#/components/responses/JobsForbidden" } } }
+    },
+    "/api/applications": {
+      "post": { "tags": ["Applications"], "summary": "Apply for a job", "security": [{ "BearerAuth": [] }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "jobId": { "type": "integer" } }, "required": ["jobId"] } } } }, "responses": { "201": { "description": "Created" }, "401": { "$ref": "#/components/responses/ApplicationsUnauthorized" }, "403": { "$ref": "#/components/responses/ApplicationsForbidden" } } }
+    },
+    "/api/applications/{id}/accept": { "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } } ], "post": { "tags": ["Applications"], "summary": "Accept application", "security": [{ "BearerAuth": [] }], "responses": { "200": { "description": "OK" }, "401": { "$ref": "#/components/responses/ApplicationsUnauthorized" }, "403": { "$ref": "#/components/responses/ApplicationsForbidden" }, "404": { "$ref": "#/components/responses/ApplicationsNotFound" } } } },
+    "/api/applications/{id}/confirm": { "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } } ], "post": { "tags": ["Applications"], "summary": "Confirm application", "security": [{ "BearerAuth": [] }], "responses": { "200": { "description": "OK" } } } },
+    "/api/applications/{id}/complete": { "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } } ], "post": { "tags": ["Applications"], "summary": "Complete application", "security": [{ "BearerAuth": [] }], "responses": { "200": { "description": "OK" } } } },
+    "/api/applications/{id}/cancel": { "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } } ], "post": { "tags": ["Applications"], "summary": "Cancel application", "security": [{ "BearerAuth": [] }], "responses": { "200": { "description": "OK" } } } },
+    "/api/reviews": { "post": { "tags": ["Reviews"], "summary": "Create review", "security": [{ "BearerAuth": [] }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "applicationId": { "type": "integer" }, "revieweeId": { "type": "integer" }, "rating": { "type": "integer" }, "comment": { "type": "string" } }, "required": ["applicationId", "revieweeId", "rating"] } } } }, "responses": { "201": { "description": "Created" }, "400": { "$ref": "#/components/responses/ReviewsBadRequest" } } } },
+    "/api/reviews/{userId}": { "parameters": [ { "name": "userId", "in": "path", "required": true, "schema": { "type": "integer" } } ], "get": { "tags": ["Reviews"], "summary": "List reviews for user", "responses": { "200": { "description": "OK" } } } },
+    "/api/notifications": { "get": { "tags": ["Notifications"], "summary": "List notifications", "security": [{ "BearerAuth": [] }], "responses": { "200": { "description": "OK" }, "401": { "$ref": "#/components/responses/NotificationsUnauthorized" } } } }
+  }
+}
+
+ 
