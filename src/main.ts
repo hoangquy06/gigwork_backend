@@ -9,7 +9,6 @@ import profilesRoutes = require('./routes/profilesRoutes')
 import authRoutes = require('./routes/authRoutes')
 import { AppModule } from './app.module'
 const swaggerUi = require('swagger-ui-express')
-const spec = require('./docs/openapi.json')
 const path = require('path')
 
 async function bootstrap() {
