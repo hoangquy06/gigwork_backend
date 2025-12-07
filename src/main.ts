@@ -32,7 +32,7 @@ async function bootstrap() {
     swaggerUi.serve,
     swaggerUi.setup(null, { swaggerUrl: '/api/openapi.json', customOptions: { docExpansion: 'list', displayOperationId: true, filter: true, validatorUrl: null } })
   )
-  http.get('/api/openapi.json', (req: any, res: any) => {
+  http.get('../dist/api/openapi.json', (req: any, res: any) => {
     res.sendFile(path.resolve(__dirname, 'docs', 'openapi.json'))
   })
   const port = process.env.PORT ? Number(process.env.PORT) : 3000
