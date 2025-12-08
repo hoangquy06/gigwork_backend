@@ -5,7 +5,7 @@ const prisma = new PrismaClient()
 async function create(userId, body) {
   const app = await prisma.jobApplication.findUnique({ where: { id: Number(body.applicationId) } })
   if (!app) throw new Error('Invalid application')
-  if (app.status !== 'completed') throw new Error('Review not allowed')
+  if (!app.isComplete && app.status !== 'completed') throw new Error('Review not allowed')
   const job = await prisma.job.findUnique({ where: { id: app.jobId } })
   const employer = await prisma.employerProfile.findUnique({ where: { id: job.employerId } })
   const isReviewerAllowed = userId === app.workerId || (employer && employer.userId === userId)
@@ -27,7 +27,14 @@ async function create(userId, body) {
 }
 
 function list(userId) {
-  return prisma.review.findMany({ where: { revieweeId: userId } })
+  return prisma.review.findMany({
+    where: { revieweeId: userId },
+    orderBy: { createdAt: 'desc' },
+    include: {
+      reviewer: { select: { id: true, email: true } },
+      job: { select: { id: true, title: true } },
+    },
+  })
 }
 
 module.exports = { create, list }
