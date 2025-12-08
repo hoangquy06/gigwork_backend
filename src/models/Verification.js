@@ -1,5 +1,4 @@
 const { PrismaClient } = require('@prisma/client')
-const nodemailer = require('nodemailer')
 const { sendEmail } = require('../services/emailService')
 const crypto = require('crypto')
 
@@ -19,7 +18,7 @@ async function sendVerification(userId) {
   const token = crypto.randomBytes(24).toString('hex')
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000)
   await prisma.emailVerification.create({ data: { userId, token, expiresAt } })
-  const linkBase = process.env.APP_URL || 'http://localhost:3001'
+  const linkBase = process.env.APP_URL || 'http://localhost:3000'
   const link = `${linkBase}/api/auth/verify-email?token=${token}`
   let html = `<p>Click to verify: <a href="${link}">${link}</a></p>`
   try {
@@ -30,19 +29,8 @@ async function sendVerification(userId) {
       html = fs.readFileSync(tpl, 'utf8').replace(/\{\{VERIFY_LINK\}\}/g, link)
     }
   } catch (_) {}
-  if ((process.env.EMAIL_PROVIDER || '').toLowerCase() === 'resend') {
-    await sendEmail({ to: user.email, subject: 'Verify your email', html })
-    return { success: true }
-  }
-  const transporter = nodemailer.createTransport({ jsonTransport: true })
-  await transporter.sendMail({
-    from: process.env.MAIL_FROM || 'noreply@example.com',
-    to: user.email,
-    subject: 'Verify your email (dev)',
-    text: `Click to verify: ${link}`,
-    html: `<p>Click to verify: <a href="${link}">${link}</a></p>`,
-  })
-  return { success: true, link }
+  await sendEmail({ to: user.email, subject: 'Verify your email', html })
+  return { success: true }
 }
 
 async function verifyByToken(token) {
