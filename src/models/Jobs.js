@@ -2,6 +2,12 @@ const { PrismaClient } = require('@prisma/client')
 
 const prisma = new PrismaClient()
 
+function httpError(code, message) {
+  const e = new Error(message)
+  e.code = code
+  return e
+}
+
 async function list(query) {
   const where = {}
   if (query && query.location) where.location = { contains: query.location }
@@ -66,16 +72,27 @@ function detail(id) {
 
 async function create(userId, data) {
   const employer = await prisma.employerProfile.findUnique({ where: { userId } })
-  if (!employer) throw new Error('Employer profile required')
+  if (!employer) throw httpError(403, 'Employer profile required')
+  const title = typeof data.title === 'string' ? data.title.trim() : ''
+  const location = typeof data.location === 'string' ? data.location.trim() : ''
+  const description = typeof data.description === 'string' ? data.description : ''
+  if (!title) throw httpError(400, 'title is required')
+  if (!location) throw httpError(400, 'location is required')
+  const startDate = new Date(data.startDate)
+  if (!data.startDate || isNaN(startDate.getTime())) throw httpError(400, 'startDate is invalid')
+  let durationDays = Number(data.durationDays)
+  let workerQuota = Number(data.workerQuota)
+  if (!Number.isFinite(durationDays) || durationDays < 1) durationDays = 1
+  if (!Number.isFinite(workerQuota) || workerQuota < 1) workerQuota = 1
   return prisma.job.create({
     data: {
       employerId: employer.id,
-      title: data.title,
-      description: data.description,
-      location: data.location,
-      startDate: new Date(data.startDate),
-      durationDays: Number(data.durationDays || 1),
-      workerQuota: Number(data.workerQuota || 1),
+      title,
+      description,
+      location,
+      startDate,
+      durationDays,
+      workerQuota,
     },
   })
 }
@@ -83,21 +100,33 @@ async function create(userId, data) {
 async function update(userId, id, data) {
   const job = await prisma.job.findUnique({ where: { id } })
   const employer = await prisma.employerProfile.findUnique({ where: { userId } })
-  if (!job || !employer || job.employerId !== employer.id) throw new Error('Forbidden')
+  if (!job || !employer || job.employerId !== employer.id) throw httpError(403, 'Forbidden')
   const allowed = {}
   ;['title', 'description', 'location'].forEach((k) => {
     if (typeof data[k] === 'string') allowed[k] = data[k]
   })
-  if (data.startDate) allowed.startDate = new Date(data.startDate)
-  if (data.durationDays) allowed.durationDays = Number(data.durationDays)
-  if (data.workerQuota) allowed.workerQuota = Number(data.workerQuota)
+  if (data.startDate) {
+    const d = new Date(data.startDate)
+    if (isNaN(d.getTime())) throw httpError(400, 'startDate is invalid')
+    allowed.startDate = d
+  }
+  if (data.durationDays) {
+    const n = Number(data.durationDays)
+    if (!Number.isFinite(n) || n < 1) throw httpError(400, 'durationDays must be >= 1')
+    allowed.durationDays = n
+  }
+  if (data.workerQuota) {
+    const n = Number(data.workerQuota)
+    if (!Number.isFinite(n) || n < 1) throw httpError(400, 'workerQuota must be >= 1')
+    allowed.workerQuota = n
+  }
   return prisma.job.update({ where: { id }, data: allowed })
 }
 
 async function remove(userId, id) {
   const job = await prisma.job.findUnique({ where: { id } })
   const employer = await prisma.employerProfile.findUnique({ where: { userId } })
-  if (!job || !employer || job.employerId !== employer.id) throw new Error('Forbidden')
+  if (!job || !employer || job.employerId !== employer.id) throw httpError(403, 'Forbidden')
   await prisma.job.delete({ where: { id } })
   return { success: true }
 }
@@ -105,13 +134,19 @@ async function remove(userId, id) {
 async function addSession(userId, jobId, data) {
   const job = await prisma.job.findUnique({ where: { id: jobId } })
   const employer = await prisma.employerProfile.findUnique({ where: { userId } })
-  if (!job || !employer || job.employerId !== employer.id) throw new Error('Forbidden')
+  if (!job || !employer || job.employerId !== employer.id) throw httpError(403, 'Forbidden')
+  const sessionDate = new Date(data.sessionDate)
+  const startTime = new Date(data.startTime)
+  const endTime = new Date(data.endTime)
+  if (isNaN(sessionDate.getTime())) throw httpError(400, 'sessionDate is invalid')
+  if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) throw httpError(400, 'startTime/endTime are invalid')
+  if (startTime >= endTime) throw httpError(400, 'startTime must be before endTime')
   return prisma.jobSession.create({
     data: {
       jobId,
-      sessionDate: new Date(data.sessionDate),
-      startTime: new Date(data.startTime),
-      endTime: new Date(data.endTime),
+      sessionDate,
+      startTime,
+      endTime,
     },
   })
 }
@@ -123,9 +158,11 @@ function sessions(jobId) {
 async function addSkills(userId, jobId, body) {
   const job = await prisma.job.findUnique({ where: { id: jobId } })
   const employer = await prisma.employerProfile.findUnique({ where: { userId } })
-  if (!job || !employer || job.employerId !== employer.id) throw new Error('Forbidden')
+  if (!job || !employer || job.employerId !== employer.id) throw httpError(403, 'Forbidden')
   const skills = Array.isArray(body.skills) ? body.skills : []
-  await prisma.jobRequiredSkill.createMany({ data: skills.map((s) => ({ jobId, skillName: s })) })
+  const clean = skills.map((s) => String(s).trim()).filter(Boolean)
+  if (clean.length === 0) throw httpError(400, 'skills must be a non-empty array')
+  await prisma.jobRequiredSkill.createMany({ data: clean.map((s) => ({ jobId, skillName: s })) })
   return { success: true }
 }
 
