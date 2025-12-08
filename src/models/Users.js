@@ -28,9 +28,18 @@ async function getMeDto(userId) {
     jobCounts = { total: totalJobs, open: openJobs }
     recentJobs = await prisma.job.findMany({ where: { employerId: user.employer.id }, orderBy: { createdAt: 'desc' }, take: 5, select: { id: true, title: true, location: true, startDate: true, workerQuota: true } })
   }
-  const unreadNotifications = await prisma.notification.count({ where: { userId } })
+  let unreadNotifications = 0
+  try {
+    unreadNotifications = await prisma.notification.count({ where: { userId, readAt: null } })
+  } catch (e) {
+    try {
+      unreadNotifications = await prisma.notification.count({ where: { userId, isRead: false } })
+    } catch (_) {
+      unreadNotifications = await prisma.notification.count({ where: { userId } })
+    }
+  }
   const recentApplications = await prisma.jobApplication.findMany({ where: { workerId: userId }, orderBy: { appliedAt: 'desc' }, take: 5, include: { job: { select: { id: true, title: true } } } })
-  const applicationsPreview = recentApplications.map((a) => ({ applicationId: a.id, jobId: a.job.id, jobTitle: a.job.title, status: a.status, appliedAt: a.appliedAt }))
+  const applicationsPreview = recentApplications.map((a) => ({ applicationId: a.id, jobId: a.job ? a.job.id : null, jobTitle: a.job ? a.job.title : null, status: a.status, appliedAt: a.appliedAt }))
   const notificationsPreview = await prisma.notification.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: 5, select: { id: true, title: true, type: true, createdAt: true } })
   return {
     id: user.id,
