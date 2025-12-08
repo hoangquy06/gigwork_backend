@@ -1,8 +1,8 @@
 "use strict";
 const Notifications = require('../models/Notifications');
 async function list(req, res) {
-    const data = await Notifications.list(req.user.id);
-    return res.json({ statusCode: 200, message: 'Operation successful', data });
+    const out = await Notifications.list(req.user.id, req.query || {});
+    return res.status(200).json(out);
 }
 module.exports = { list };
 //# sourceMappingURL=notificationsController.js.map

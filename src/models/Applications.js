@@ -10,28 +10,47 @@ async function accept(userId, appId) {
   const employer = await prisma.employerProfile.findUnique({ where: { userId } })
   if (!job || !employer || job.employerId !== employer.id) throw new Error('Forbidden')
   const count = await prisma.jobApplication.count({ where: { jobId: app.jobId, status: 'accepted' } })
-  if (count >= job.workerQuota) throw new Error('Quota reached')
+  if (count >= job.workerQuota) {
+    const e = new Error('Quota reached')
+    e.code = 409
+    e.errorCode = 'APPLICATIONS_QUOTA_REACHED'
+    e.content = { accepted: count, workerQuota: job.workerQuota, jobId: app.jobId }
+    throw e
+  }
   const updated = await prisma.jobApplication.update({ where: { id: appId }, data: { status: 'accepted' } })
   await prisma.notification.create({ data: { userId: app.workerId, type: 'application.accepted', title: 'Application accepted', content: `Your application for "${job.title}" was accepted` } })
   return updated
 }
 
 
-async function complete(userId, appId) {
-  const app = await prisma.jobApplication.findUnique({ where: { id: appId } })
-  if (!app || app.workerId !== userId) throw new Error('Forbidden')
+// removed: use completeJobs and completePaid instead
+
+async function completeJobs(userId, jobId, workerId) {
+  const app = await prisma.jobApplication.findFirst({ where: { jobId: Number(jobId), workerId: Number(workerId) } })
+  if (!app) throw new Error('Invalid application')
   const job = await prisma.job.findUnique({ where: { id: app.jobId } })
   if (!job) throw new Error('Invalid job')
+  const employer = await prisma.employerProfile.findUnique({ where: { userId } })
+  if (!employer || job.employerId !== employer.id) throw new Error('Forbidden')
   const end = new Date(job.startDate)
   end.setDate(end.getDate() + Number(job.durationDays || 1))
   if (new Date() < end) throw new Error('Job not ended')
-  const updated = await prisma.jobApplication.update({ where: { id: appId }, data: { status: 'completed' } })
-  const employer = await prisma.employerProfile.findUnique({ where: { id: job.employerId } })
-  if (employer) {
-    await prisma.notification.create({ data: { userId: employer.userId, type: 'application.completed', title: 'Job completed', content: `employee completed job "${job.title}"` } })
-  }
+  const updated = await prisma.jobApplication.update({ where: { id: app.id }, data: { isComplete: true } })
   await prisma.notification.create({ data: { userId: app.workerId, type: 'application.completed', title: 'Job completed', content: `You completed job "${job.title}"` } })
   return updated
+}
+
+async function completePaid(userId, appId) {
+  const app = await prisma.jobApplication.findUnique({ where: { id: Number(appId) } })
+  if (!app) throw new Error('Invalid application')
+  if (app.workerId !== userId) throw new Error('Forbidden')
+  if (!app.isComplete && app.status !== 'completed') {
+    const e = new Error('Job not completed')
+    e.code = 409
+    e.errorCode = 'JOB_NOT_COMPLETED'
+    throw e
+  }
+  return prisma.jobApplication.update({ where: { id: app.id }, data: { isPaid: true } })
 }
 
 async function cancel(userId, appId) {
@@ -58,11 +77,31 @@ async function reject(userId, appId) {
 async function apply(userId, body) {
   const worker = await prisma.employeeProfile.findUnique({ where: { userId } })
   if (!worker) throw new Error('Employee profile required')
-  const created = await prisma.jobApplication.create({ data: { jobId: Number(body.jobId), workerId: userId } })
-  const job = await prisma.job.findUnique({ where: { id: created.jobId } })
+  const jobId = Number(body.jobId)
+  const job = await prisma.job.findUnique({ where: { id: jobId } })
+  if (!job) throw new Error('Job not found')
+  const now = new Date()
+  const end = new Date(job.startDate)
+  end.setDate(end.getDate() + Number(job.durationDays || 1))
+  if (now >= job.startDate) {
+    const e = new Error('Job not open for application')
+    e.code = 409
+    e.errorCode = 'JOB_NOT_OPEN'
+    e.hint = 'Applications are only allowed before startDate'
+    throw e
+  }
+  const accepted = await prisma.jobApplication.count({ where: { jobId, status: 'accepted' } })
+  if (accepted >= job.workerQuota) {
+    const e = new Error('Job is full')
+    e.code = 409
+    e.errorCode = 'JOB_FULL'
+    e.content = { accepted, workerQuota: job.workerQuota, jobId }
+    throw e
+  }
+  const created = await prisma.jobApplication.create({ data: { jobId, workerId: userId } })
   const employer = await prisma.employerProfile.findUnique({ where: { id: job.employerId } })
   if (employer) await prisma.notification.create({ data: { userId: employer.userId, type: 'application.pending', title: 'New application', content: `A worker applied to "${job.title}"` } })
   return created
 }
 
-module.exports = { apply, accept, complete, reject }
+module.exports = { apply, accept, completeJobs, completePaid, reject }
