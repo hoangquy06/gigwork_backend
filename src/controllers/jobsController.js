@@ -1,9 +1,8 @@
 const Jobs = require('../models/Jobs')
 
 async function list(req, res) {
-  const items = await Jobs.list(req.query || {})
-  const meta = { count: Array.isArray(items) ? items.length : 0, filters: req.query || {} }
-  return res.status(200).json({ items, meta })
+  const out = await Jobs.list(req.query || {})
+  return res.status(200).json(out)
 }
 
 async function detail(req, res) {

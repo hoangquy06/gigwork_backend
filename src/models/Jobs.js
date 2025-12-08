@@ -11,6 +11,7 @@ function httpError(code, message) {
 async function list(query) {
   const where = {}
   if (query && query.location) where.location = { contains: query.location }
+  if (query && query.type) where.type = normalizeType(query.type)
 
   const andFilters = []
 
@@ -63,11 +64,46 @@ async function list(query) {
   }
 
   const finalWhere = andFilters.length > 0 ? { AND: [where, ...andFilters] } : where
-  return prisma.job.findMany({ where: finalWhere, include: { sessions: true, skills: true, employer: true } })
+  const page = Number(query && query.page) > 0 ? Number(query.page) : 1
+  const size = Number(query && query.size) > 0 ? Number(query.size) : 20
+  const skip = (page - 1) * size
+  const sort = typeof (query && query.sort) === 'string' ? String(query.sort) : 'createdAt:desc'
+  const [sortField, sortDir] = sort.split(':')
+  const orderBy = { [sortField || 'createdAt']: (sortDir === 'asc' ? 'asc' : 'desc') }
+  const [items, total] = await Promise.all([
+    prisma.job.findMany({ where: finalWhere, include: { sessions: true, skills: true, employer: true }, orderBy, skip, take: size }),
+    prisma.job.count({ where: finalWhere })
+  ])
+  const now = new Date()
+  const ids = items.map((j) => j.id)
+  const acceptedByJob = await prisma.jobApplication.groupBy({ by: ['jobId'], where: { jobId: { in: ids }, status: 'accepted' }, _count: { jobId: true } })
+  const mapAccepted = Object.fromEntries(acceptedByJob.map((r) => [r.jobId, r._count.jobId]))
+  const computeStatus = (job) => {
+    const end = new Date(job.startDate)
+    end.setDate(end.getDate() + Number(job.durationDays || 1))
+    if (now > end) return 'completed'
+    if (now >= job.startDate && now <= end) return 'ongoing'
+    const accepted = Number(mapAccepted[job.id] || 0)
+    return accepted >= job.workerQuota ? 'full' : 'open'
+  }
+  const withStatus = items.map((j) => ({ ...j, status: computeStatus(j) }))
+  return { items: withStatus, meta: { total, page, size, filters: query || {}, sort: orderBy } }
 }
 
-function detail(id) {
-  return prisma.job.findUnique({ where: { id }, include: { sessions: true, skills: true, employer: true } })
+async function detail(id) {
+  const job = await prisma.job.findUnique({ where: { id }, include: { sessions: true, skills: true, employer: true } })
+  if (!job) return null
+  const now = new Date()
+  const end = new Date(job.startDate)
+  end.setDate(end.getDate() + Number(job.durationDays || 1))
+  let status = 'open'
+  if (now > end) status = 'completed'
+  else if (now >= job.startDate && now <= end) status = 'ongoing'
+  else {
+    const accepted = await prisma.jobApplication.count({ where: { jobId: id, status: 'accepted' } })
+    status = accepted >= job.workerQuota ? 'full' : 'open'
+  }
+  return { ...job, status }
 }
 
 async function create(userId, data) {
@@ -93,8 +129,27 @@ async function create(userId, data) {
       startDate,
       durationDays,
       workerQuota,
+      type: normalizeType(data.type),
+      status: 'open',
     },
   })
+}
+
+function normalizeType(t) {
+  const s = String(t || '').toLowerCase().trim()
+  switch (s) {
+    case 'physical work':
+    case 'physical_work':
+      return 'physical_work'
+    case 'fnb':
+      return 'fnb'
+    case 'event':
+      return 'event'
+    case 'retail':
+      return 'retail'
+    default:
+      return 'others'
+  }
 }
 
 async function update(userId, id, data) {

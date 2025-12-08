@@ -14,8 +14,9 @@ async function accept(req, res) {
 }
 
 async function complete(req, res) {
-  const applicationId = Number(req.body && req.body.applicationId)
-  const data = await Apps.complete(req.user.id, applicationId)
+  const jobId = Number(req.body && req.body.jobId)
+  const workerId = Number(req.body && req.body.workerId)
+  const data = await Apps.completeJobs(req.user.id, jobId, workerId)
   return res.status(200).json(data)
 }
 
@@ -26,4 +27,9 @@ async function reject(req, res) {
   return res.status(200).json(data)
 }
 
-module.exports = { apply, accept, complete, reject }
+module.exports = { apply, accept, complete, completePaid, reject }
+async function completePaid(req, res) {
+  const applicationId = Number(req.body && req.body.applicationId)
+  const data = await Apps.completePaid(req.user.id, applicationId)
+  return res.status(200).json(data)
+}

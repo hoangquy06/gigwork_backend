@@ -10,5 +10,6 @@ router.post('/api/applications', authMiddleware, requireVerified, asyncHandler(c
 router.post('/api/applications/accept', authMiddleware, requireVerified, asyncHandler(ctrl.accept))
 router.post('/api/applications/reject', authMiddleware, requireVerified, asyncHandler(ctrl.reject))
 router.post('/api/applications/complete', authMiddleware, requireVerified, asyncHandler(ctrl.complete))
+router.post('/api/applications/complete-paid', authMiddleware, requireVerified, asyncHandler(ctrl.completePaid))
 
 module.exports = router
