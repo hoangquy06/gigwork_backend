@@ -41,4 +41,14 @@ async function addSkills(req, res) {
   return res.status(201).json({ created: skills.length, skills })
 }
 
-module.exports = { list, detail, create, update, remove, addSession, sessions, addSkills }
+async function getLocation(req, res) {
+  const data = await Jobs.getLocation(Number(req.params.id))
+  return res.status(200).json(data)
+}
+
+async function updateLocation(req, res) {
+  const data = await Jobs.updateLocation(req.user.id, Number(req.params.id), req.body || {})
+  return res.status(200).json(data)
+}
+
+module.exports = { list, detail, create, update, remove, addSession, sessions, addSkills, getLocation, updateLocation }

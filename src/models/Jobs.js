@@ -10,7 +10,6 @@ function httpError(code, message) {
 
 async function list(query) {
   const where = {}
-  if (query && query.location) where.location = { contains: query.location }
   if (query && query.type) where.type = normalizeType(query.type)
 
   const andFilters = []
@@ -48,6 +47,19 @@ async function list(query) {
     andFilters.push({ sessions: { some: sessionFilter } })
   }
 
+  if (query && query.province) {
+    andFilters.push({ locationRef: { province: { contains: String(query.province) } } })
+  }
+  if (query && query.city) {
+    andFilters.push({ locationRef: { city: { contains: String(query.city) } } })
+  }
+  if (query && query.ward) {
+    andFilters.push({ locationRef: { ward: { contains: String(query.ward) } } })
+  }
+  if (query && query.addressContains) {
+    andFilters.push({ locationRef: { address: { contains: String(query.addressContains) } } })
+  }
+
   if (query && (query.startDate || (query.startFrom && query.startTo))) {
     if (query.startDate) {
       const d = new Date(query.startDate)
@@ -71,7 +83,7 @@ async function list(query) {
   const [sortField, sortDir] = sort.split(':')
   const orderBy = { [sortField || 'createdAt']: (sortDir === 'asc' ? 'asc' : 'desc') }
   const [items, total] = await Promise.all([
-    prisma.job.findMany({ where: finalWhere, include: { sessions: true, skills: true, employer: true }, orderBy, skip, take: size }),
+    prisma.job.findMany({ where: finalWhere, include: { sessions: true, skills: true, employer: true, locationRef: true }, orderBy, skip, take: size }),
     prisma.job.count({ where: finalWhere })
   ])
   const now = new Date()
@@ -91,7 +103,7 @@ async function list(query) {
 }
 
 async function detail(id) {
-  const job = await prisma.job.findUnique({ where: { id }, include: { sessions: true, skills: true, employer: true } })
+  const job = await prisma.job.findUnique({ where: { id }, include: { sessions: true, skills: true, employer: true, locationRef: true } })
   if (!job) return null
   const now = new Date()
   const end = new Date(job.startDate)
@@ -110,29 +122,45 @@ async function create(userId, data) {
   const employer = await prisma.employerProfile.findUnique({ where: { userId } })
   if (!employer) throw httpError(403, 'Employer profile required')
   const title = typeof data.title === 'string' ? data.title.trim() : ''
-  const location = typeof data.location === 'string' ? data.location.trim() : ''
   const description = typeof data.description === 'string' ? data.description : ''
   if (!title) throw httpError(400, 'title is required')
-  if (!location) throw httpError(400, 'location is required')
+  const locObj = typeof data.location === 'object' && data.location !== null ? data.location : null
+  if (!locObj || typeof locObj.province !== 'string' || typeof locObj.city !== 'string' || typeof locObj.address !== 'string') throw httpError(400, 'location object is required')
   const startDate = new Date(data.startDate)
   if (!data.startDate || isNaN(startDate.getTime())) throw httpError(400, 'startDate is invalid')
   let durationDays = Number(data.durationDays)
   let workerQuota = Number(data.workerQuota)
+  let salary = Number(data.salary)
   if (!Number.isFinite(durationDays) || durationDays < 1) durationDays = 1
   if (!Number.isFinite(workerQuota) || workerQuota < 1) workerQuota = 1
-  return prisma.job.create({
-    data: {
-      employerId: employer.id,
-      title,
-      description,
-      location,
-      startDate,
-      durationDays,
-      workerQuota,
-      type: normalizeType(data.type),
-      status: 'open',
-    },
+  if (!Number.isFinite(salary) || salary < 1) throw httpError(400, 'salary is required and must be >= 1')
+  const created = await prisma.$transaction(async (tx) => {
+    const job = await tx.job.create({
+      data: {
+        employerId: userId,
+        title,
+        description,
+        startDate,
+        durationDays,
+        workerQuota,
+        salary,
+        type: normalizeType(data.type),
+        status: 'open',
+      },
+    })
+    await tx.jobLocation.create({
+      data: {
+        jobId: job.id,
+        province: String(locObj.province).trim(),
+        city: String(locObj.city).trim(),
+        ward: locObj.ward ? String(locObj.ward).trim() : null,
+        address: String(locObj.address).trim(),
+      },
+    })
+    await tx.job.update({ where: { id: job.id }, data: { locationId: job.id } })
+    return job
   })
+  return created
 }
 
 function normalizeType(t) {
@@ -155,9 +183,9 @@ function normalizeType(t) {
 async function update(userId, id, data) {
   const job = await prisma.job.findUnique({ where: { id } })
   const employer = await prisma.employerProfile.findUnique({ where: { userId } })
-  if (!job || !employer || job.employerId !== employer.id) throw httpError(403, 'Forbidden')
+  if (!job || !employer || job.employerId !== userId) throw httpError(403, 'Forbidden')
   const allowed = {}
-  ;['title', 'description', 'location'].forEach((k) => {
+  ;['title', 'description'].forEach((k) => {
     if (typeof data[k] === 'string') allowed[k] = data[k]
   })
   if (data.startDate) {
@@ -175,13 +203,40 @@ async function update(userId, id, data) {
     if (!Number.isFinite(n) || n < 1) throw httpError(400, 'workerQuota must be >= 1')
     allowed.workerQuota = n
   }
+  if (data.salary !== undefined) {
+    const n = Number(data.salary)
+    if (!Number.isFinite(n) || n < 1) throw httpError(400, 'salary must be >= 1')
+    allowed.salary = n
+  }
+  const locObj = typeof data.location === 'object' && data.location !== null ? data.location : null
+  if (locObj) {
+    await prisma.$transaction(async (tx) => {
+      await tx.jobLocation.upsert({
+        where: { jobId: id },
+        update: {
+          province: String(locObj.province || '').trim(),
+          city: String(locObj.city || '').trim(),
+          ward: locObj.ward ? String(locObj.ward).trim() : null,
+          address: String(locObj.address || '').trim(),
+        },
+        create: {
+          jobId: id,
+          province: String(locObj.province || '').trim(),
+          city: String(locObj.city || '').trim(),
+          ward: locObj.ward ? String(locObj.ward).trim() : null,
+          address: String(locObj.address || '').trim(),
+        },
+      })
+      await tx.job.update({ where: { id }, data: { locationId: id } })
+    })
+  }
   return prisma.job.update({ where: { id }, data: allowed })
 }
 
 async function remove(userId, id) {
   const job = await prisma.job.findUnique({ where: { id } })
   const employer = await prisma.employerProfile.findUnique({ where: { userId } })
-  if (!job || !employer || job.employerId !== employer.id) throw httpError(403, 'Forbidden')
+  if (!job || !employer || job.employerId !== userId) throw httpError(403, 'Forbidden')
   await prisma.job.delete({ where: { id } })
   return { success: true }
 }
@@ -189,7 +244,7 @@ async function remove(userId, id) {
 async function addSession(userId, jobId, data) {
   const job = await prisma.job.findUnique({ where: { id: jobId } })
   const employer = await prisma.employerProfile.findUnique({ where: { userId } })
-  if (!job || !employer || job.employerId !== employer.id) throw httpError(403, 'Forbidden')
+  if (!job || !employer || job.employerId !== userId) throw httpError(403, 'Forbidden')
   const sessionDate = new Date(data.sessionDate)
   const startTime = new Date(data.startTime)
   const endTime = new Date(data.endTime)
@@ -213,7 +268,7 @@ function sessions(jobId) {
 async function addSkills(userId, jobId, body) {
   const job = await prisma.job.findUnique({ where: { id: jobId } })
   const employer = await prisma.employerProfile.findUnique({ where: { userId } })
-  if (!job || !employer || job.employerId !== employer.id) throw httpError(403, 'Forbidden')
+  if (!job || !employer || job.employerId !== userId) throw httpError(403, 'Forbidden')
   const skills = Array.isArray(body.skills) ? body.skills : []
   const clean = skills.map((s) => String(s).trim()).filter(Boolean)
   if (clean.length === 0) throw httpError(400, 'skills must be a non-empty array')
@@ -221,4 +276,29 @@ async function addSkills(userId, jobId, body) {
   return { success: true }
 }
 
-module.exports = { list, detail, create, update, remove, addSession, sessions, addSkills }
+async function getLocation(jobId) {
+  return prisma.jobLocation.findUnique({ where: { jobId } })
+}
+
+async function updateLocation(userId, jobId, body) {
+  const job = await prisma.job.findUnique({ where: { id: jobId } })
+  const employer = await prisma.employerProfile.findUnique({ where: { userId } })
+  if (!job || !employer || job.employerId !== userId) throw httpError(403, 'Forbidden')
+  const province = String(body.province || '').trim()
+  const city = String(body.city || '').trim()
+  const ward = body.ward ? String(body.ward).trim() : null
+  const address = String(body.address || '').trim()
+  if (!province || !city || !address) throw httpError(400, 'location fields are required')
+  const out = await prisma.$transaction(async (tx) => {
+    const loc = await tx.jobLocation.upsert({
+      where: { jobId: jobId },
+      update: { province, city, ward, address },
+      create: { jobId: jobId, province, city, ward, address },
+    })
+    await tx.job.update({ where: { id: jobId }, data: { locationId: jobId } })
+    return loc
+  })
+  return out
+}
+
+module.exports = { list, detail, create, update, remove, addSession, sessions, addSkills, getLocation, updateLocation }

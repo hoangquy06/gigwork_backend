@@ -8,7 +8,7 @@ async function accept(userId, appId) {
   if (!app) return null
   const job = await prisma.job.findUnique({ where: { id: app.jobId } })
   const employer = await prisma.employerProfile.findUnique({ where: { userId } })
-  if (!job || !employer || job.employerId !== employer.id) throw new Error('Forbidden')
+  if (!job || !employer || job.employerId !== userId) throw new Error('Forbidden')
   const count = await prisma.jobApplication.count({ where: { jobId: app.jobId, status: 'accepted' } })
   if (count >= job.workerQuota) {
     const e = new Error('Quota reached')
@@ -31,7 +31,7 @@ async function completeJobs(userId, jobId, workerId) {
   const job = await prisma.job.findUnique({ where: { id: app.jobId } })
   if (!job) throw new Error('Invalid job')
   const employer = await prisma.employerProfile.findUnique({ where: { userId } })
-  if (!employer || job.employerId !== employer.id) throw new Error('Forbidden')
+  if (!employer || job.employerId !== userId) throw new Error('Forbidden')
   const end = new Date(job.startDate)
   end.setDate(end.getDate() + Number(job.durationDays || 1))
   if (new Date() < end) throw new Error('Job not ended')
@@ -58,8 +58,7 @@ async function cancel(userId, appId) {
   if (!app || app.workerId !== userId) throw new Error('Forbidden')
   const updated = await prisma.jobApplication.update({ where: { id: appId }, data: { status: 'cancelled' } })
   const job = await prisma.job.findUnique({ where: { id: app.jobId } })
-  const employer = await prisma.employerProfile.findUnique({ where: { id: job.employerId } })
-  if (employer) await prisma.notification.create({ data: { userId: employer.userId, type: 'application.cancelled', title: 'Application cancelled', content: `Employer cancelled application for "${job.title}"` } })
+  await prisma.notification.create({ data: { userId: job.employerId, type: 'application.cancelled', title: 'Application cancelled', content: `Employer cancelled application for "${job.title}"` } })
   return updated
 }
 
@@ -68,7 +67,7 @@ async function reject(userId, appId) {
   if (!app) return null
   const job = await prisma.job.findUnique({ where: { id: app.jobId } })
   const employer = await prisma.employerProfile.findUnique({ where: { userId } })
-  if (!job || !employer || job.employerId !== employer.id) throw new Error('Forbidden')
+  if (!job || !employer || job.employerId !== userId) throw new Error('Forbidden')
   const updated = await prisma.jobApplication.update({ where: { id: appId }, data: { status: 'cancelled' } })
   await prisma.notification.create({ data: { userId: app.workerId, type: 'application.rejected', title: 'Application rejected', content: `Your application for "${job.title}" was rejected` } })
   return updated

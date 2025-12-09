@@ -14,5 +14,7 @@ router.delete('/api/jobs/:id', authMiddleware, requireVerified, asyncHandler(ctr
 router.post('/api/jobs/:id/sessions', authMiddleware, requireVerified, asyncHandler(ctrl.addSession))
 router.get('/api/jobs/:id/sessions', asyncHandler(ctrl.sessions))
 router.post('/api/jobs/:id/skills', authMiddleware, requireVerified, asyncHandler(ctrl.addSkills))
+router.get('/api/jobs/:id/location', asyncHandler(ctrl.getLocation))
+router.patch('/api/jobs/:id/location', authMiddleware, requireVerified, asyncHandler(ctrl.updateLocation))
 
 module.exports = router

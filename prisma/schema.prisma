@@ -28,6 +28,7 @@ model User {
   notifications Notification[]
   emailVerifications EmailVerification[]
   profileImages ProfileImage[]
+  jobs         Job[]
 }
 
 model EmployeeProfile {
@@ -46,7 +47,6 @@ model EmployerProfile {
   companyName  String
   companyAddress String?
   user         User   @relation(fields: [userId], references: [id])
-  jobs         Job[]
 }
 
 model Job {
@@ -54,26 +54,35 @@ model Job {
   employerId  Int
   title       String
   description String
-  location    String
   startDate   DateTime
   durationDays Int
   workerQuota Int
+  salary      Int       @default(300000)
   status      JobStatus  @default(open)
   type        JobType   @default(others)
+  locationId  Int? @unique
+  sessionId   Int? @unique
+  skillId     Int? @unique
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
-  employer    EmployerProfile @relation(fields: [employerId], references: [id])
-  sessions    JobSession[]
-  skills      JobRequiredSkill[]
+  employer    User @relation(fields: [employerId], references: [id])
+  sessions    JobSession[] @relation("JobSessions")
+  skills      JobRequiredSkill[] @relation("JobSkills")
   applications JobApplication[]
   reviews     Review[]
+  locationByJobId JobLocation? @relation("JobToLocation")
+  locationRef     JobLocation? @relation("JobToLocationById", fields: [locationId], references: [jobId], onDelete: SetNull)
+  primarySession   JobSession?        @relation("JobPrimarySession", fields: [sessionId], references: [id], onDelete: SetNull)
+  primarySkill     JobRequiredSkill?  @relation("JobPrimarySkill", fields: [skillId], references: [id], onDelete: SetNull)
 }
 
 model JobRequiredSkill {
+  id        Int      @id @default(autoincrement())
   jobId     Int
   skillName String
-  job       Job   @relation(fields: [jobId], references: [id])
-  @@id([jobId, skillName])
+  job       Job      @relation("JobSkills", fields: [jobId], references: [id])
+  primaryForJob Job? @relation("JobPrimarySkill")
+  @@unique([jobId, skillName])
 }
 
 model JobSession {
@@ -82,7 +91,8 @@ model JobSession {
   sessionDate DateTime
   startTime DateTime
   endTime   DateTime
-  job       Job      @relation(fields: [jobId], references: [id])
+  job       Job      @relation("JobSessions", fields: [jobId], references: [id])
+  primaryForJob Job? @relation("JobPrimarySession")
 }
 
 enum ApplicationStatus {
@@ -106,6 +116,18 @@ enum JobType {
   event
   retail
   others
+}
+
+model JobLocation {
+  jobId    Int @id
+  province String
+  city     String
+  ward     String?
+  address  String
+  job              Job  @relation("JobToLocation", fields: [jobId], references: [id], onDelete: Cascade)
+  jobByLocationId  Job? @relation("JobToLocationById")
+
+  @@index([province, city, ward])
 }
 
 enum ProfileRole {
