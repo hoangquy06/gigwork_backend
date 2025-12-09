@@ -116,7 +116,9 @@ async function listAll() {
     const accepted = Number(mapAccepted[job.id] || 0)
     return accepted >= job.workerQuota ? 'full' : 'open'
   }
-  return items.map((j) => ({ ...j, status: computeStatus(j) }))
+  return items
+    .map((j) => ({ ...j, status: computeStatus(j) }))
+    .filter((j) => j.status === 'open' || j.status === 'full')
 }
 
 async function detail(id) {
