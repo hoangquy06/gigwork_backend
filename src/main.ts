@@ -14,6 +14,7 @@ import { AppModule } from './app.module'
 const swaggerUi = require('swagger-ui-express')
 const path = require('path')
 const fs = require('fs')
+const { setupHelmet } = require('./middleware/helmet')
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule)
@@ -26,6 +27,7 @@ async function bootstrap() {
   http.use(express.json())
   http.use(express.urlencoded({ extended: true }))
   http.use(cors({ origin: origins.length > 0 ? origins : true, credentials: true, methods: ['GET','HEAD','PUT','PATCH','POST','DELETE','OPTIONS'] }))
+  setupHelmet(http)
   http.use(userRoutes)
   http.use(jobsRoutes)
   http.use(applicationsRoutes)
@@ -34,8 +36,10 @@ async function bootstrap() {
   http.use(profilesRoutes)
   http.use(profileImagesRoutes)
   http.use(authRoutes)
+  http.use(authRoutes)
   http.use(healthRoutes)
   http.use(devRoutes)
+  
   const { errorHandler } = require('./middleware/errorHandler')
   http.use(errorHandler)
   http.use(

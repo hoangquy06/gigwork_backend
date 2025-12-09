@@ -158,9 +158,38 @@ async function create(userId, data) {
       },
     })
     await tx.job.update({ where: { id: job.id }, data: { locationId: job.id } })
+    const sessions = Array.isArray(data.sessions) ? data.sessions : []
+    if (sessions.length > 0) {
+      const payload = sessions.map((s) => {
+        const sessionDate = new Date(s && s.sessionDate)
+        const startTime = new Date(s && s.startTime)
+        const endTime = new Date(s && s.endTime)
+        if (isNaN(sessionDate.getTime())) throw httpError(400, 'sessionDate is invalid')
+        if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) throw httpError(400, 'startTime/endTime are invalid')
+        if (startTime >= endTime) throw httpError(400, 'startTime must be before endTime')
+        return { jobId: job.id, sessionDate, startTime, endTime }
+      })
+      if (payload.length > 0) {
+        await tx.jobSession.createMany({ data: payload })
+        const firstSession = await tx.jobSession.findFirst({ where: { jobId: job.id }, orderBy: { id: 'asc' } })
+        await tx.job.update({ where: { id: job.id }, data: { sessionId: firstSession ? firstSession.id : null } })
+      }
+    }
+    const skillsArr = Array.isArray(data.skills) ? data.skills : []
+    if (skillsArr.length > 0) {
+      const clean = skillsArr
+        .map((s) => (typeof s === 'string' ? s : (s && s.skillName ? s.skillName : '')))
+        .map((s) => String(s).trim())
+        .filter(Boolean)
+      if (clean.length === 0) throw httpError(400, 'skills must be a non-empty array')
+      await tx.jobRequiredSkill.createMany({ data: clean.map((s) => ({ jobId: job.id, skillName: s })) })
+      const firstSkill = await tx.jobRequiredSkill.findFirst({ where: { jobId: job.id }, orderBy: { id: 'asc' } })
+      await tx.job.update({ where: { id: job.id }, data: { skillId: firstSkill ? firstSkill.id : null } })
+    }
     return job
   })
-  return created
+  const full = await prisma.job.findUnique({ where: { id: created.id }, include: { sessions: true, skills: true, employer: true, locationRef: true } })
+  return full
 }
 
 function normalizeType(t) {
@@ -230,14 +259,56 @@ async function update(userId, id, data) {
       await tx.job.update({ where: { id }, data: { locationId: id } })
     })
   }
-  return prisma.job.update({ where: { id }, data: allowed })
+  const updated = await prisma.job.update({ where: { id }, data: allowed })
+
+  if (Array.isArray(data.sessions)) {
+    const payload = data.sessions.map((s) => {
+      const sessionDate = new Date(s && s.sessionDate)
+      const startTime = new Date(s && s.startTime)
+      const endTime = new Date(s && s.endTime)
+      if (isNaN(sessionDate.getTime())) throw httpError(400, 'sessionDate is invalid')
+      if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) throw httpError(400, 'startTime/endTime are invalid')
+      if (startTime >= endTime) throw httpError(400, 'startTime must be before endTime')
+      return { jobId: id, sessionDate, startTime, endTime }
+    })
+    await prisma.$transaction(async (tx) => {
+      await tx.jobSession.deleteMany({ where: { jobId: id } })
+      if (payload.length > 0) await tx.jobSession.createMany({ data: payload })
+      const firstSession = await tx.jobSession.findFirst({ where: { jobId: id }, orderBy: { id: 'asc' } })
+      await tx.job.update({ where: { id }, data: { sessionId: firstSession ? firstSession.id : null } })
+    })
+  }
+
+  if (Array.isArray(data.skills)) {
+    const clean = data.skills
+      .map((s) => (typeof s === 'string' ? s : (s && s.skillName ? s.skillName : '')))
+      .map((s) => String(s).trim())
+      .filter(Boolean)
+    if (data.skills.length > 0 && clean.length === 0) throw httpError(400, 'skills must be a non-empty array')
+    await prisma.$transaction(async (tx) => {
+      await tx.jobRequiredSkill.deleteMany({ where: { jobId: id } })
+      if (clean.length > 0) await tx.jobRequiredSkill.createMany({ data: clean.map((s) => ({ jobId: id, skillName: s })) })
+      const firstSkill = await tx.jobRequiredSkill.findFirst({ where: { jobId: id }, orderBy: { id: 'asc' } })
+      await tx.job.update({ where: { id }, data: { skillId: firstSkill ? firstSkill.id : null } })
+    })
+  }
+
+  const full = await prisma.job.findUnique({ where: { id }, include: { sessions: true, skills: true, employer: true, locationRef: true } })
+  return full
 }
 
 async function remove(userId, id) {
   const job = await prisma.job.findUnique({ where: { id } })
   const employer = await prisma.employerProfile.findUnique({ where: { userId } })
   if (!job || !employer || job.employerId !== userId) throw httpError(403, 'Forbidden')
-  await prisma.job.delete({ where: { id } })
+  await prisma.$transaction(async (tx) => {
+    await tx.jobApplication.deleteMany({ where: { jobId: id } })
+    await tx.review.deleteMany({ where: { jobId: id } })
+    await tx.jobSession.deleteMany({ where: { jobId: id } })
+    await tx.jobRequiredSkill.deleteMany({ where: { jobId: id } })
+    await tx.jobLocation.deleteMany({ where: { jobId: id } })
+    await tx.job.delete({ where: { id } })
+  })
   return { success: true }
 }
 
