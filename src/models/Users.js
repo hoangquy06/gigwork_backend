@@ -18,15 +18,15 @@ async function getMeDto(userId) {
   const ratingCount = await prisma.review.count({ where: { revieweeId: userId } })
   const ratingAgg = await prisma.review.aggregate({ _avg: { rating: true }, where: { revieweeId: userId } })
   const applicationCounts = await prisma.jobApplication.groupBy({ by: ['status'], where: { workerId: userId }, _count: { _all: true } })
-  const appMap = { pending: 0, accepted: 0, confirmed: 0, completed: 0, cancelled: 0 }
+  const appMap = { pending: 0, accepted: 0, completed: 0, cancelled: 0 }
   applicationCounts.forEach((r) => { appMap[r.status] = r._count._all })
   let jobCounts = null
   let recentJobs = []
-  if (user.isEmployer && user.employer) {
-    const totalJobs = await prisma.job.count({ where: { employerId: user.employer.id } })
-    const openJobs = await prisma.job.count({ where: { employerId: user.employer.id, startDate: { gte: new Date() } } })
+  if (user.isEmployer) {
+    const totalJobs = await prisma.job.count({ where: { employerId: user.id } })
+    const openJobs = await prisma.job.count({ where: { employerId: user.id, startDate: { gte: new Date() } } })
     jobCounts = { total: totalJobs, open: openJobs }
-    recentJobs = await prisma.job.findMany({ where: { employerId: user.employer.id }, orderBy: { createdAt: 'desc' }, take: 5, select: { id: true, title: true, location: true, startDate: true, workerQuota: true } })
+    recentJobs = await prisma.job.findMany({ where: { employerId: user.id }, orderBy: { createdAt: 'desc' }, take: 5, select: { id: true, title: true, location: true, startDate: true, workerQuota: true, salary: true } })
   }
   let unreadNotifications = 0
   try {

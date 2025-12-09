@@ -9,6 +9,7 @@ import profilesRoutes = require('./routes/profilesRoutes')
 import profileImagesRoutes = require('./routes/profileImagesRoutes')
 import authRoutes = require('./routes/authRoutes')
 import healthRoutes = require('./routes/healthRoutes')
+import devRoutes = require('./routes/devRoutes')
 import { AppModule } from './app.module'
 const swaggerUi = require('swagger-ui-express')
 const path = require('path')
@@ -34,6 +35,7 @@ async function bootstrap() {
   http.use(profileImagesRoutes)
   http.use(authRoutes)
   http.use(healthRoutes)
+  http.use(devRoutes)
   const { errorHandler } = require('./middleware/errorHandler')
   http.use(errorHandler)
   http.use(
