@@ -107,7 +107,7 @@
           "jobCounts": { "type": "object", "nullable": true, "properties": { "total": { "type": "integer" }, "open": { "type": "integer" } } },
           "unreadNotifications": { "type": "integer" },
           "recentApplications": { "type": "array", "items": { "type": "object", "properties": { "applicationId": { "type": "integer" }, "jobId": { "type": "integer", "nullable": true }, "jobTitle": { "type": "string", "nullable": true }, "status": { "type": "string" }, "appliedAt": { "type": "string", "format": "date-time" } } } },
-          "recentJobs": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "integer" }, "title": { "type": "string" }, "startDate": { "type": "string", "format": "date-time" }, "workerQuota": { "type": "integer" }, "salary": { "type": "integer" } } } },
+          "recentJobs": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "integer" }, "title": { "type": "string" }, "startDate": { "type": "string", "format": "date-time" }, "workerQuota": { "type": "integer" }, "salary": { "type": "integer" }, "locationRef": { "type": "object", "properties": { "province": { "type": "string" }, "city": { "type": "string" }, "ward": { "type": "string", "nullable": true }, "address": { "type": "string" } } }, "status": { "type": "string", "enum": ["open","full","ongoing","completed"] } } } },
           "notificationsPreview": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "integer" }, "title": { "type": "string" }, "type": { "type": "string" }, "createdAt": { "type": "string", "format": "date-time" } } } }
         }
       }
@@ -249,6 +249,19 @@
           "401": { "$ref": "#/components/responses/JobsUnauthorized" },
           "403": { "$ref": "#/components/responses/JobsForbidden" },
           "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/jobs/all": {
+      "get": {
+        "tags": ["Jobs"],
+        "summary": "List open and full jobs",
+        "description": "Returns only jobs whose computed status is 'open' or 'full'",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Job" } } } }
+          }
         }
       }
     },

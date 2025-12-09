@@ -102,6 +102,25 @@ async function list(query) {
   return { items: withStatus, meta: { total, page, size, filters: query || {}, sort: orderBy } }
 }
 
+async function listAll() {
+  const items = await prisma.job.findMany({ include: { sessions: true, skills: true, employer: true, locationRef: true }, orderBy: { createdAt: 'desc' } })
+  const now = new Date()
+  const ids = items.map((j) => j.id)
+  const acceptedByJob = await prisma.jobApplication.groupBy({ by: ['jobId'], where: { jobId: { in: ids }, status: 'accepted' }, _count: { jobId: true } })
+  const mapAccepted = Object.fromEntries(acceptedByJob.map((r) => [r.jobId, r._count.jobId]))
+  const computeStatus = (job) => {
+    const end = new Date(job.startDate)
+    end.setDate(end.getDate() + Number(job.durationDays || 1))
+    if (now > end) return 'completed'
+    if (now >= job.startDate && now <= end) return 'ongoing'
+    const accepted = Number(mapAccepted[job.id] || 0)
+    return accepted >= job.workerQuota ? 'full' : 'open'
+  }
+  return items
+    .map((j) => ({ ...j, status: computeStatus(j) }))
+    .filter((j) => j.status === 'open' || j.status === 'full')
+}
+
 async function detail(id) {
   const job = await prisma.job.findUnique({ where: { id }, include: { sessions: true, skills: true, employer: true, locationRef: true } })
   if (!job) return null
@@ -372,4 +391,4 @@ async function updateLocation(userId, jobId, body) {
   return out
 }
 
-module.exports = { list, detail, create, update, remove, addSession, sessions, addSkills, getLocation, updateLocation }
+module.exports = { list, listAll, detail, create, update, remove, addSession, sessions, addSkills, getLocation, updateLocation }

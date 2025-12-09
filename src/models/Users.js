@@ -26,7 +26,21 @@ async function getMeDto(userId) {
     const totalJobs = await prisma.job.count({ where: { employerId: user.id } })
     const openJobs = await prisma.job.count({ where: { employerId: user.id, startDate: { gte: new Date() } } })
     jobCounts = { total: totalJobs, open: openJobs }
-    recentJobs = await prisma.job.findMany({ where: { employerId: user.id }, orderBy: { createdAt: 'desc' }, take: 5, select: { id: true, title: true, location: true, startDate: true, workerQuota: true, salary: true } })
+    recentJobs = await prisma.job.findMany({ where: { employerId: user.id }, orderBy: { createdAt: 'desc' }, take: 5, select: { id: true, title: true, startDate: true, durationDays: true, workerQuota: true, salary: true, locationRef: { select: { province: true, city: true, ward: true, address: true } } } })
+    const now = new Date()
+    const ids = recentJobs.map((j) => j.id)
+    const acceptedByJob = ids.length > 0 ? await prisma.jobApplication.groupBy({ by: ['jobId'], where: { jobId: { in: ids }, status: 'accepted' }, _count: { jobId: true } }) : []
+    const mapAccepted = Object.fromEntries(acceptedByJob.map((r) => [r.jobId, r._count.jobId]))
+    recentJobs = recentJobs.map((j) => {
+      const end = new Date(j.startDate)
+      end.setDate(end.getDate() + Number(j.durationDays || 1))
+      let status = 'open'
+      if (now > end) status = 'completed'
+      else if (now >= j.startDate && now <= end) status = 'ongoing'
+      else if (Number(mapAccepted[j.id] || 0) >= j.workerQuota) status = 'full'
+      const { durationDays, ...rest } = j
+      return { ...rest, status }
+    })
   }
   let unreadNotifications = 0
   try {

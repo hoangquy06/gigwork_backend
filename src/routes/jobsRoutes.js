@@ -7,6 +7,7 @@ const ctrl = require('../controllers/jobsController')
 const router = express.Router()
 
 router.get('/api/jobs', asyncHandler(ctrl.list))
+router.get('/api/jobs/all', asyncHandler(ctrl.listAll))
 router.get('/api/jobs/:id', asyncHandler(ctrl.detail))
 router.post('/api/jobs', authMiddleware, requireVerified, asyncHandler(ctrl.create))
 router.patch('/api/jobs/:id', authMiddleware, requireVerified, asyncHandler(ctrl.update))
