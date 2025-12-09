@@ -21,7 +21,12 @@ async function update(req, res) {
 }
 
 async function remove(req, res) {
-  const data = await Jobs.remove(req.user.id, Number(req.params.id))
+  const raw = (req.params && req.params.id) || (req.query && req.query.jobId) || (req.body && req.body.jobId)
+  const id = Number(raw)
+  if (!Number.isFinite(id) || id <= 0) {
+    return res.status(400).json({ type: 'about:blank', title: 'Bad Request', status: 400, detail: 'jobId is required', instance: req.originalUrl })
+  }
+  await Jobs.remove(req.user.id, id)
   return res.status(204).send()
 }
 
