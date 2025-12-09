@@ -2,6 +2,14 @@ const { PrismaClient } = require('@prisma/client')
 
 const prisma = new PrismaClient()
 
+function getEmployeeById(userId) {
+  return prisma.employeeProfile.findUnique({ where: { userId } })
+}
+
+function getEmployerById(userId) {
+  return prisma.employerProfile.findUnique({ where: { userId } })
+}
+
 function createEmployee(userId, body) {
   return prisma.employeeProfile.create({
     data: {

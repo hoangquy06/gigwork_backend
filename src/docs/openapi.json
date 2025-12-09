@@ -77,9 +77,92 @@
         "properties": {
           "id": { "type": "integer" },
           "email": { "type": "string" },
+          "phone": { "type": "string", "nullable": true },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" },
+          "lastLoginAt": { "type": "string", "format": "date-time", "nullable": true },
           "isVerified": { "type": "boolean" },
+          "isActive": { "type": "boolean" },
+          "bannedAt": { "type": "string", "format": "date-time", "nullable": true },
           "isWorker": { "type": "boolean" },
-          "isEmployer": { "type": "boolean" }
+          "isEmployer": { "type": "boolean" },
+          "workerProfile": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "bio": { "type": "string", "nullable": true },
+              "skills": { "type": "object", "nullable": true },
+              "dob": { "type": "string", "format": "date-time", "nullable": true },
+              "gender": { "type": "string", "nullable": true }
+            }
+          },
+          "employerProfile": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "companyName": { "type": "string" },
+              "companyAddress": { "type": "string", "nullable": true }
+            }
+          },
+          "ratingAvg": { "type": "number" },
+          "ratingCount": { "type": "integer" },
+          "applicationCounts": {
+            "type": "object",
+            "properties": {
+              "pending": { "type": "integer" },
+              "accepted": { "type": "integer" },
+              "confirmed": { "type": "integer" },
+              "completed": { "type": "integer" },
+              "cancelled": { "type": "integer" }
+            }
+          },
+          "jobCounts": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "total": { "type": "integer" },
+              "open": { "type": "integer" }
+            }
+          },
+          "unreadNotifications": { "type": "integer" },
+          "recentApplications": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "applicationId": { "type": "integer" },
+                "jobId": { "type": "integer", "nullable": true },
+                "jobTitle": { "type": "string", "nullable": true },
+                "status": { "type": "string" },
+                "appliedAt": { "type": "string", "format": "date-time" }
+              }
+            }
+          },
+          "recentJobs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "integer" },
+                "title": { "type": "string" },
+                "location": { "type": "string" },
+                "startDate": { "type": "string", "format": "date-time" },
+                "workerQuota": { "type": "integer" }
+              }
+            }
+          },
+          "notificationsPreview": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "integer" },
+                "title": { "type": "string" },
+                "type": { "type": "string" },
+                "createdAt": { "type": "string", "format": "date-time" }
+              }
+            }
+          }
         }
       }
     },
@@ -166,6 +249,9 @@
     "/api/profiles/employer/image/{id}/primary": { "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } } ], "post": { "tags": ["Profiles"], "summary": "Set employer image as primary", "security": [{ "BearerAuth": [] }], "responses": { "200": { "description": "OK" } } } },
     "/api/profiles/employer/image/{id}": { "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } } ], "delete": { "tags": ["Profiles"], "summary": "Delete employer image", "security": [{ "BearerAuth": [] }], "responses": { "200": { "description": "OK" } } } },
     "/api/profiles/employee": { "post": { "tags": ["Profiles"], "summary": "Create employee profile", "security": [{ "BearerAuth": [] }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "bio": { "type": "string" }, "skills": { "type": "object" }, "dob": { "type": "string", "format": "date-time" }, "gender": { "type": "string" } } } } } }, "responses": { "201": { "description": "Created" }, "401": { "$ref": "#/components/responses/UsersUnauthorized" } } }, "patch": { "tags": ["Profiles"], "summary": "Update employee profile", "security": [{ "BearerAuth": [] }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "bio": { "type": "string" }, "skills": { "type": "object" }, "dob": { "type": "string", "format": "date-time" }, "gender": { "type": "string" } } } } } }, "responses": { "200": { "description": "OK" }, "401": { "$ref": "#/components/responses/UsersUnauthorized" } } } },
+    "/api/profiles/employee/{userId}": { "parameters": [ { "name": "userId", "in": "path", "required": true, "schema": { "type": "integer" } } ], "get": { "tags": ["Profiles"], "summary": "Get employee profile by user id", "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "type": "object", "properties": { "id": { "type": "integer" }, "userId": { "type": "integer" }, "bio": { "type": "string" }, "skills": { "type": "object" }, "dob": { "type": "string", "format": "date-time" }, "gender": { "type": "string" } } } } } }, "404": { "$ref": "#/components/responses/JobsNotFound" } } } },
     "/api/profiles/employer": { "post": { "tags": ["Profiles"], "summary": "Create employer profile", "security": [{ "BearerAuth": [] }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "companyName": { "type": "string" }, "companyAddress": { "type": "string" } }, "required": ["companyName"] } } } }, "responses": { "201": { "description": "Created" }, "401": { "$ref": "#/components/responses/UsersUnauthorized" } } }, "patch": { "tags": ["Profiles"], "summary": "Update employer profile", "security": [{ "BearerAuth": [] }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "companyName": { "type": "string" }, "companyAddress": { "type": "string" } } } } } }, "responses": { "200": { "description": "OK" }, "401": { "$ref": "#/components/responses/UsersUnauthorized" } } } }
+    ,
+    "/api/profiles/employer/{userId}": { "parameters": [ { "name": "userId", "in": "path", "required": true, "schema": { "type": "integer" } } ], "get": { "tags": ["Profiles"], "summary": "Get employer profile by user id", "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "type": "object", "properties": { "id": { "type": "integer" }, "userId": { "type": "integer" }, "companyName": { "type": "string" }, "companyAddress": { "type": "string" } } } } } }, "404": { "$ref": "#/components/responses/JobsNotFound" } } } }
 }
 }

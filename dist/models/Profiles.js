@@ -1,6 +1,12 @@
 "use strict";
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
+function getEmployeeById(userId) {
+    return prisma.employeeProfile.findUnique({ where: { userId } });
+}
+function getEmployerById(userId) {
+    return prisma.employerProfile.findUnique({ where: { userId } });
+}
 function createEmployee(userId, body) {
     var _a, _b, _c;
     return prisma.employeeProfile.create({
@@ -45,5 +51,5 @@ function updateEmployer(userId, body) {
         },
     });
 }
-module.exports = { createEmployee, updateEmployee, createEmployer, updateEmployer };
+module.exports = { getEmployeeById, getEmployerById, createEmployee, updateEmployee, createEmployer, updateEmployer };
 //# sourceMappingURL=Profiles.js.map

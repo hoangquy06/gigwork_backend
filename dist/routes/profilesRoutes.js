@@ -5,6 +5,8 @@ const { requireVerified } = require('../middleware/requireVerified');
 const { asyncHandler } = require('../middleware/asyncHandler');
 const ctrl = require('../controllers/profilesController');
 const router = express.Router();
+router.get('/api/profiles/employee/:userId', asyncHandler(ctrl.getEmployeeById));
+router.get('/api/profiles/employer/:userId', asyncHandler(ctrl.getEmployerById));
 router.post('/api/profiles/employee', authMiddleware, requireVerified, asyncHandler(ctrl.createEmployee));
 router.patch('/api/profiles/employee', authMiddleware, requireVerified, asyncHandler(ctrl.updateEmployee));
 router.post('/api/profiles/employer', authMiddleware, requireVerified, asyncHandler(ctrl.createEmployer));
