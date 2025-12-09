@@ -252,6 +252,18 @@
         }
       }
     },
+    "/api/jobs/all": {
+      "get": {
+        "tags": ["Jobs"],
+        "summary": "List all jobs",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Job" } } } }
+          }
+        }
+      }
+    },
     "/api/jobs/{id}": {
       "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
       "get": { "tags": ["Jobs"], "summary": "Get job by id", "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Job" } } } }, "404": { "$ref": "#/components/responses/JobsNotFound" } } },

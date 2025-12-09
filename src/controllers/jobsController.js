@@ -5,6 +5,11 @@ async function list(req, res) {
   return res.status(200).json(out)
 }
 
+async function listAll(req, res) {
+  const data = await Jobs.listAll()
+  return res.status(200).json(data)
+}
+
 async function detail(req, res) {
   const data = await Jobs.detail(Number(req.params.id))
   return res.status(200).json(data)
@@ -56,4 +61,4 @@ async function updateLocation(req, res) {
   return res.status(200).json(data)
 }
 
-module.exports = { list, detail, create, update, remove, addSession, sessions, addSkills, getLocation, updateLocation }
+module.exports = { list, listAll, detail, create, update, remove, addSession, sessions, addSkills, getLocation, updateLocation }
