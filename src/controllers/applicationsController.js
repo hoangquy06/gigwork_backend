@@ -40,7 +40,7 @@ async function reject(req, res) {
   return res.status(200).json(data)
 }
 
-module.exports = { apply, accept, complete, completePaid, reject }
+module.exports = { listMine, getById, apply, accept, complete, completePaid, reject }
 async function completePaid(req, res) {
   const applicationId = Number(req.body && req.body.applicationId)
   const data = await Apps.completePaid(req.user.id, applicationId)
