@@ -112,6 +112,34 @@
           "notificationsPreview": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "integer" }, "title": { "type": "string" }, "type": { "type": "string" }, "createdAt": { "type": "string", "format": "date-time" } } } }
         }
       }
+      ,
+      "JobApplicationFull": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "jobId": { "type": "integer" },
+          "workerId": { "type": "integer" },
+          "status": { "type": "string", "enum": ["pending","accepted","confirmed","completed","cancelled"] },
+          "isComplete": { "type": "boolean" },
+          "isPaid": { "type": "boolean" },
+          "appliedAt": { "type": "string", "format": "date-time" },
+          "job": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "integer" },
+              "title": { "type": "string" },
+              "employerId": { "type": "integer" },
+              "startDate": { "type": "string", "format": "date-time" },
+              "durationDays": { "type": "integer" },
+              "salary": { "type": "integer" }
+            }
+          },
+          "worker": {
+            "type": "object",
+            "properties": { "id": { "type": "integer" }, "email": { "type": "string" } }
+          }
+        }
+      }
     },
     "responses": {
       "AuthUnauthorized": { "description": "Unauthorized", "content": { "application/problem+json": { "schema": { "allOf": [ { "$ref": "#/components/schemas/ProblemDetails" }, { "type": "object", "properties": { "errorCode": { "type": "string" }, "hint": { "type": "string" } } } ] }, "examples": { "unauthorized": { "value": { "type": "about:blank", "title": "Unauthorized", "status": 401, "detail": "Missing or invalid token. Please sign in again", "instance": "/api/auth/login", "errorCode": "AUTH_UNAUTHORIZED", "hint": "Send Authorization: Bearer <token>" } } } } } },
@@ -293,7 +321,32 @@
       "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
       "post": { "tags": ["Jobs"], "summary": "Add required skills", "security": [{ "BearerAuth": [] }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "skills": { "type": "array", "items": { "type": "string" } } } } } } }, "responses": { "201": { "description": "Created" }, "401": { "$ref": "#/components/responses/JobsUnauthorized" }, "403": { "$ref": "#/components/responses/JobsForbidden" } } }
     },
-    "/api/applications": { "post": { "tags": ["Applications"], "summary": "Apply for a job", "security": [{ "BearerAuth": [] }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "jobId": { "type": "integer" } }, "required": ["jobId"] } } } }, "responses": { "201": { "description": "Created", "content": { "application/json": { "schema": { "type": "object", "properties": { "application": { "type": "object" }, "employee": { "$ref": "#/components/schemas/UserMe" } } } } } }, "401": { "$ref": "#/components/responses/ApplicationsUnauthorized" }, "403": { "$ref": "#/components/responses/ApplicationsForbidden" }, "409": { "description": "Conflict (job not open/full)", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/ProblemDetails" } } } } } } },
+    "/api/applications": {
+      "get": {
+        "tags": ["Applications"],
+        "summary": "List applications for current user",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/JobApplicationFull" } } } } },
+          "401": { "$ref": "#/components/responses/ApplicationsUnauthorized" }
+        }
+      },
+      "post": { "tags": ["Applications"], "summary": "Apply for a job", "security": [{ "BearerAuth": [] }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "jobId": { "type": "integer" } }, "required": ["jobId"] } } } }, "responses": { "201": { "description": "Created", "content": { "application/json": { "schema": { "type": "object", "properties": { "application": { "type": "object" }, "employee": { "$ref": "#/components/schemas/UserMe" } } } } } }, "401": { "$ref": "#/components/responses/ApplicationsUnauthorized" }, "403": { "$ref": "#/components/responses/ApplicationsForbidden" }, "409": { "description": "Conflict (job not open/full)", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/ProblemDetails" } } } } } }
+    },
+    "/api/applications/{id}": {
+      "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+      "get": {
+        "tags": ["Applications"],
+        "summary": "Get application detail by id",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/JobApplicationFull" } } } },
+          "401": { "$ref": "#/components/responses/ApplicationsUnauthorized" },
+          "403": { "$ref": "#/components/responses/ApplicationsForbidden" },
+          "404": { "$ref": "#/components/responses/ApplicationsNotFound" }
+        }
+      }
+    },
     "/api/applications/accept": { "post": { "tags": ["Applications"], "summary": "Accept application", "security": [{ "BearerAuth": [] }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "applicationId": { "type": "integer" } }, "required": ["applicationId"] } } } }, "responses": { "200": { "description": "OK" }, "401": { "$ref": "#/components/responses/ApplicationsUnauthorized" }, "403": { "$ref": "#/components/responses/ApplicationsForbidden" }, "404": { "$ref": "#/components/responses/ApplicationsNotFound" } } } },
     "/api/applications/reject": { "post": { "tags": ["Applications"], "summary": "Reject application", "security": [{ "BearerAuth": [] }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "applicationId": { "type": "integer" } }, "required": ["applicationId"] } } } }, "responses": { "200": { "description": "OK" }, "401": { "$ref": "#/components/responses/ApplicationsUnauthorized" }, "403": { "$ref": "#/components/responses/ApplicationsForbidden" }, "404": { "$ref": "#/components/responses/ApplicationsNotFound" } } } },
     "/api/applications/complete": { "post": { "tags": ["Applications"], "summary": "Employer marks job complete for worker", "security": [{ "BearerAuth": [] }], "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "properties": { "jobId": { "type": "integer" }, "workerId": { "type": "integer" } }, "required": ["jobId", "workerId"] } } } }, "responses": { "200": { "description": "OK" }, "401": { "$ref": "#/components/responses/ApplicationsUnauthorized" }, "403": { "$ref": "#/components/responses/ApplicationsForbidden" }, "409": { "description": "Conflict", "content": { "application/problem+json": { "schema": { "$ref": "#/components/schemas/ProblemDetails" } } } } } } },
