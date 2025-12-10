@@ -83,7 +83,20 @@ async function list(query) {
   const [sortField, sortDir] = sort.split(':')
   const orderBy = { [sortField || 'createdAt']: (sortDir === 'asc' ? 'asc' : 'desc') }
   const [items, total] = await Promise.all([
-    prisma.job.findMany({ where: finalWhere, include: { sessions: true, skills: true, employer: true, locationRef: true }, orderBy, skip, take: size }),
+    prisma.job.findMany({
+      where: finalWhere,
+      include: {
+        sessions: true,
+        skills: true,
+        locationRef: true,
+        employer: {
+          select: { id: true, email: true, employer: { select: { companyName: true } } },
+        },
+      },
+      orderBy,
+      skip,
+      take: size,
+    }),
     prisma.job.count({ where: finalWhere })
   ])
   const now = new Date()
@@ -98,12 +111,24 @@ async function list(query) {
     const accepted = Number(mapAccepted[job.id] || 0)
     return accepted >= job.workerQuota ? 'full' : 'open'
   }
-  const withStatus = items.map((j) => ({ ...j, status: computeStatus(j) }))
+  const withStatus = items.map((j) => ({
+    ...j,
+    status: computeStatus(j),
+    companyName: j.employer && j.employer.employer ? j.employer.employer.companyName : null,
+  }))
   return { items: withStatus, meta: { total, page, size, filters: query || {}, sort: orderBy } }
 }
 
 async function listAll() {
-  const items = await prisma.job.findMany({ include: { sessions: true, skills: true, employer: true, locationRef: true }, orderBy: { createdAt: 'desc' } })
+  const items = await prisma.job.findMany({
+    include: {
+      sessions: true,
+      skills: true,
+      locationRef: true,
+      employer: { select: { id: true, email: true, employer: { select: { companyName: true } } } },
+    },
+    orderBy: { createdAt: 'desc' },
+  })
   const now = new Date()
   const ids = items.map((j) => j.id)
   const acceptedByJob = await prisma.jobApplication.groupBy({ by: ['jobId'], where: { jobId: { in: ids }, status: 'accepted' }, _count: { jobId: true } })
@@ -117,12 +142,24 @@ async function listAll() {
     return accepted >= job.workerQuota ? 'full' : 'open'
   }
   return items
-    .map((j) => ({ ...j, status: computeStatus(j) }))
+    .map((j) => ({
+      ...j,
+      status: computeStatus(j),
+      companyName: j.employer && j.employer.employer ? j.employer.employer.companyName : null,
+    }))
     .filter((j) => j.status === 'open' || j.status === 'full')
 }
 
 async function detail(id) {
-  const job = await prisma.job.findUnique({ where: { id }, include: { sessions: true, skills: true, employer: true, locationRef: true } })
+  const job = await prisma.job.findUnique({
+    where: { id },
+    include: {
+      sessions: true,
+      skills: true,
+      locationRef: true,
+      employer: { select: { id: true, email: true, employer: { select: { companyName: true } } } },
+    },
+  })
   if (!job) return null
   const now = new Date()
   const end = new Date(job.startDate)
@@ -134,7 +171,11 @@ async function detail(id) {
     const accepted = await prisma.jobApplication.count({ where: { jobId: id, status: 'accepted' } })
     status = accepted >= job.workerQuota ? 'full' : 'open'
   }
-  return { ...job, status }
+  return {
+    ...job,
+    status,
+    companyName: job.employer && job.employer.employer ? job.employer.employer.companyName : null,
+  }
 }
 
 async function create(userId, data) {
@@ -207,8 +248,16 @@ async function create(userId, data) {
     }
     return job
   })
-  const full = await prisma.job.findUnique({ where: { id: created.id }, include: { sessions: true, skills: true, employer: true, locationRef: true } })
-  return full
+  const full = await prisma.job.findUnique({
+    where: { id: created.id },
+    include: {
+      sessions: true,
+      skills: true,
+      locationRef: true,
+      employer: { select: { id: true, email: true, employer: { select: { companyName: true } } } },
+    },
+  })
+  return { ...full, companyName: full.employer && full.employer.employer ? full.employer.employer.companyName : null }
 }
 
 function normalizeType(t) {
@@ -312,8 +361,16 @@ async function update(userId, id, data) {
     })
   }
 
-  const full = await prisma.job.findUnique({ where: { id }, include: { sessions: true, skills: true, employer: true, locationRef: true } })
-  return full
+  const full = await prisma.job.findUnique({
+    where: { id },
+    include: {
+      sessions: true,
+      skills: true,
+      locationRef: true,
+      employer: { select: { id: true, email: true, employer: { select: { companyName: true } } } },
+    },
+  })
+  return { ...full, companyName: full.employer && full.employer.employer ? full.employer.employer.companyName : null }
 }
 
 async function remove(userId, id) {
