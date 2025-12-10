@@ -6,11 +6,10 @@ async function listMine(req, res) {
 }
 
 async function getById(req, res) {
-  const id = Number(req.params.id)
-  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ type: 'about:blank', title: 'Bad Request', status: 400, detail: 'id is required', instance: req.originalUrl })
-  const item = await Apps.detailForUser(req.user.id, id)
-  if (!item) return res.status(404).json({ type: 'about:blank', title: 'Not Found', status: 404, detail: 'Application not found', instance: req.originalUrl })
-  return res.status(200).json(item)
+  const jobId = Number(req.params.id)
+  if (!Number.isFinite(jobId) || jobId <= 0) return res.status(400).json({ type: 'about:blank', title: 'Bad Request', status: 400, detail: 'id (jobId) is required', instance: req.originalUrl })
+  const items = await Apps.listByJobForUser(req.user.id, jobId)
+  return res.status(200).json(items)
 }
 
 async function apply(req, res) {

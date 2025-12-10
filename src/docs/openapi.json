@@ -337,10 +337,11 @@
       "parameters": [ { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
       "get": {
         "tags": ["Applications"],
-        "summary": "Get application detail by id",
+        "summary": "List applications for a job by id (jobId)",
+        "description": "Employer sees all applications for the job; worker sees only their own application for that job.",
         "security": [{ "BearerAuth": [] }],
         "responses": {
-          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/JobApplicationFull" } } } },
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/JobApplicationFull" } } } } },
           "401": { "$ref": "#/components/responses/ApplicationsUnauthorized" },
           "403": { "$ref": "#/components/responses/ApplicationsForbidden" },
           "404": { "$ref": "#/components/responses/ApplicationsNotFound" }
