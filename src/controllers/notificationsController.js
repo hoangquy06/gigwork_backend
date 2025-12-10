@@ -5,4 +5,9 @@ async function list(req, res) {
   return res.status(200).json(out)
 }
 
-module.exports = { list }
+async function create(req, res) {
+  const data = await Notifications.create(req.user.id, req.body || {})
+  return res.status(201).json(data)
+}
+
+module.exports = { list, create }
