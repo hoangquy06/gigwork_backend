@@ -45,6 +45,33 @@ async function detailForUser(userId, appId) {
   return app
 }
 
+async function listByJobForUser(userId, jobId) {
+  const job = await prisma.job.findUnique({ where: { id: jobId } })
+  if (!job) {
+    const e = new Error('Not Found')
+    e.code = 404
+    throw e
+  }
+  if (job.employerId === userId) {
+    return prisma.jobApplication.findMany({
+      where: { jobId },
+      include: {
+        job: { select: { id: true, title: true, employerId: true, startDate: true, durationDays: true, salary: true } },
+        worker: { select: { id: true, email: true } },
+      },
+      orderBy: { appliedAt: 'desc' },
+    })
+  }
+  return prisma.jobApplication.findMany({
+    where: { jobId, workerId: userId },
+    include: {
+      job: { select: { id: true, title: true, employerId: true, startDate: true, durationDays: true, salary: true } },
+      worker: { select: { id: true, email: true } },
+    },
+    orderBy: { appliedAt: 'desc' },
+  })
+}
+
 
 async function accept(userId, appId) {
   const app = await prisma.jobApplication.findUnique({ where: { id: appId } })
@@ -146,4 +173,4 @@ async function apply(userId, body) {
   return created
 }
 
-module.exports = { apply, accept, completeJobs, completePaid, reject, listForUser, detailForUser }
+module.exports = { apply, accept, completeJobs, completePaid, reject, listForUser, detailForUser, listByJobForUser }
