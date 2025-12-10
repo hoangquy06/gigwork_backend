@@ -172,7 +172,7 @@ async function apply(userId, body) {
     throw e
   }
   const created = await prisma.jobApplication.create({ data: { jobId, workerId: userId } })
-  const employer = await prisma.employerProfile.findUnique({ where: { id: job.employerId } })
+  const employer = await prisma.employerProfile.findUnique({ where: { userId: job.employerId } })
   if (employer) {
     const Notifications = require('./Notifications')
     await Notifications.create(employer.userId, { type: 'application.pending', title: 'New application', content: `A worker applied to "${job.title}"` })
