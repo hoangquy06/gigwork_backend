@@ -6,6 +6,8 @@ const ctrl = require('../controllers/applicationsController')
 
 const router = express.Router()
 
+router.get('/api/applications', authMiddleware, requireVerified, asyncHandler(ctrl.listMine))
+router.get('/api/applications/:id', authMiddleware, requireVerified, asyncHandler(ctrl.getById))
 router.post('/api/applications', authMiddleware, requireVerified, asyncHandler(ctrl.apply))
 router.post('/api/applications/accept', authMiddleware, requireVerified, asyncHandler(ctrl.accept))
 router.post('/api/applications/reject', authMiddleware, requireVerified, asyncHandler(ctrl.reject))
