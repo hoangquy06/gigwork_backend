@@ -7,5 +7,6 @@ const ctrl = require('../controllers/notificationsController')
 const router = express.Router()
 
 router.get('/api/notifications', authMiddleware, requireVerified, asyncHandler(ctrl.list))
+router.post('/api/notification', authMiddleware, asyncHandler(ctrl.create))
 
 module.exports = router

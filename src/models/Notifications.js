@@ -14,4 +14,17 @@ async function list(userId, query) {
   return { items, meta: { total, page, size } }
 }
 
-module.exports = { list }
+async function create(userId, data) {
+  const type = String(data && data.type || '').trim()
+  const title = String(data && data.title || '').trim()
+  const content = String(data && data.content || '').trim()
+  if (!userId || !type || !title) {
+    const e = new Error('Invalid notification payload')
+    e.code = 400
+    e.errorCode = 'NOTIFICATION_BAD_REQUEST'
+    throw e
+  }
+  return prisma.notification.create({ data: { userId, type, title, content } })
+}
+
+module.exports = { list, create }
