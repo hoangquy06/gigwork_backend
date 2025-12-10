@@ -1,5 +1,18 @@
 const Apps = require('../models/Applications')
 
+async function listMine(req, res) {
+  const items = await Apps.listForUser(req.user.id)
+  return res.status(200).json(items)
+}
+
+async function getById(req, res) {
+  const id = Number(req.params.id)
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ type: 'about:blank', title: 'Bad Request', status: 400, detail: 'id is required', instance: req.originalUrl })
+  const item = await Apps.detailForUser(req.user.id, id)
+  if (!item) return res.status(404).json({ type: 'about:blank', title: 'Not Found', status: 404, detail: 'Application not found', instance: req.originalUrl })
+  return res.status(200).json(item)
+}
+
 async function apply(req, res) {
   const application = await Apps.apply(req.user.id, req.body || {})
   const Users = require('../models/Users')

@@ -2,6 +2,49 @@ const { PrismaClient } = require('@prisma/client')
 
 const prisma = new PrismaClient()
 
+async function listForUser(userId) {
+  const user = await prisma.user.findUnique({ where: { id: userId } })
+  if (!user) return []
+  if (user.isEmployer) {
+    const apps = await prisma.jobApplication.findMany({
+      where: { job: { employerId: userId } },
+      include: {
+        job: { select: { id: true, title: true, employerId: true, startDate: true, durationDays: true, salary: true } },
+        worker: { select: { id: true, email: true } },
+      },
+      orderBy: { appliedAt: 'desc' },
+    })
+    return apps
+  } else {
+    const apps = await prisma.jobApplication.findMany({
+      where: { workerId: userId },
+      include: {
+        job: { select: { id: true, title: true, employerId: true, startDate: true, durationDays: true, salary: true } },
+        worker: { select: { id: true, email: true } },
+      },
+      orderBy: { appliedAt: 'desc' },
+    })
+    return apps
+  }
+}
+
+async function detailForUser(userId, appId) {
+  const app = await prisma.jobApplication.findUnique({
+    where: { id: appId },
+    include: {
+      job: { select: { id: true, title: true, employerId: true, startDate: true, durationDays: true, salary: true } },
+      worker: { select: { id: true, email: true } },
+    },
+  })
+  if (!app) return null
+  if (app.workerId !== userId && app.job.employerId !== userId) {
+    const e = new Error('Forbidden')
+    e.code = 403
+    throw e
+  }
+  return app
+}
+
 
 async function accept(userId, appId) {
   const app = await prisma.jobApplication.findUnique({ where: { id: appId } })
@@ -103,4 +146,4 @@ async function apply(userId, body) {
   return created
 }
 
-module.exports = { apply, accept, completeJobs, completePaid, reject }
+module.exports = { apply, accept, completeJobs, completePaid, reject, listForUser, detailForUser }
