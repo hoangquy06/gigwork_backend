@@ -1,4 +1,5 @@
 const { PrismaClient } = require('@prisma/client')
+const Jobs = require('./Jobs')
 
 const prisma = new PrismaClient()
 
@@ -144,6 +145,7 @@ async function reject(userId, appId) {
   const updated = await prisma.jobApplication.update({ where: { id: appId }, data: { status: 'cancelled' } })
   const Notifications = require('./Notifications')
   await Notifications.create(app.workerId, { type: 'application.rejected', title: 'Application rejected', content: `Your application for "${job.title}" was rejected` })
+  await Jobs.updateJobStatus(app.jobId)
   return updated
 }
 

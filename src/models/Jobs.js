@@ -178,6 +178,25 @@ async function detail(id) {
   }
 }
 
+async function updateJobStatus(jobId) {
+  const job = await prisma.job.findUnique({ where: { id: jobId } })
+  if (!job) return null
+  const now = new Date()
+  const end = new Date(job.startDate)
+  end.setDate(end.getDate() + Number(job.durationDays || 1))
+  let newStatus = 'open'
+  if (now > end) newStatus = 'completed'
+  else if (now >= job.startDate && now <= end) newStatus = 'ongoing'
+  else {
+    const accepted = await prisma.jobApplication.count({ where: { jobId: jobId, status: 'accepted' } })
+    newStatus = accepted >= job.workerQuota ? 'full' : 'open'
+  }
+  if (job.status !== newStatus) {
+    await prisma.job.update({ where: { id: jobId }, data: { status: newStatus } })
+  }
+  return newStatus
+}
+
 async function create(userId, data) {
   const employer = await prisma.employerProfile.findUnique({ where: { userId } })
   if (!employer) throw httpError(403, 'Employer profile required')
@@ -448,4 +467,4 @@ async function updateLocation(userId, jobId, body) {
   return out
 }
 
-module.exports = { list, listAll, detail, create, update, remove, addSession, sessions, addSkills, getLocation, updateLocation }
+module.exports = { list, listAll, detail, create, update, remove, addSession, sessions, addSkills, getLocation, updateLocation, updateJobStatus }
