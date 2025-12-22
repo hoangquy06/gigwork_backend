@@ -67,7 +67,7 @@
           "durationDays": { "type": "integer" },
           "workerQuota": { "type": "integer" },
           "salary": { "type": "integer" },
-          "status": { "type": "string", "enum": ["open","full","ongoing","completed"] },
+          "status": { "type": "string", "enum": ["open","full","ongoing","completed"], "description": "Computed automatically based on time and application counts. Updates immediately on relevant events." },
           "type": { "type": "string", "enum": ["physical_work","fnb","event","retail","others"] },
           "sessions": { "type": "array", "items": { "$ref": "#/components/schemas/JobSession" } },
           "skills": { "type": "array", "items": { "$ref": "#/components/schemas/JobRequiredSkill" } },
