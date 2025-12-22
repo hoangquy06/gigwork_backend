@@ -20,7 +20,6 @@ async function create(userId, body) {
       jobId: app.jobId,
       reviewerId: userId,
       revieweeId: Number(body.revieweeId),
-      rating: Number(body.rating),
       comment: body.comment ?? null,
     },
   })

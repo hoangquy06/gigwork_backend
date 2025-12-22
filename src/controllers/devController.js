@@ -90,7 +90,7 @@ async function seedMocks(req, res) {
       if (s === 'completed') {
         a = await prisma.jobApplication.update({ where: { id: a.id }, data: { status: 'completed', isComplete: true, isPaid: true } })
         await prisma.notification.create({ data: { userId: worker.id, type: 'application.completed', title: 'Job completed', content: `You completed job "${job.title}"` } })
-        await prisma.review.upsert({ where: { jobId_reviewerId: { jobId: job.id, reviewerId: job.employerId } }, update: {}, create: { jobId: job.id, reviewerId: job.employerId, revieweeId: worker.id, rating: 5, comment: 'Làm việc rất tốt' } })
+        await prisma.review.upsert({ where: { jobId_reviewerId: { jobId: job.id, reviewerId: job.employerId } }, update: {}, create: { jobId: job.id, reviewerId: job.employerId, revieweeId: worker.id, comment: 'Làm việc rất tốt' } })
       }
       if (s === 'pending') {
         await prisma.notification.create({ data: { userId: job.employerId, type: 'application.pending', title: 'New application', content: `A worker applied to "${job.title}"` } })

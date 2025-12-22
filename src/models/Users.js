@@ -15,8 +15,7 @@ async function updateById(id, data) {
 async function getMeDto(userId) {
   const user = await prisma.user.findUnique({ where: { id: userId }, include: { employee: true, employer: true } })
   if (!user) return null
-  const ratingCount = await prisma.review.count({ where: { revieweeId: userId } })
-  const ratingAgg = await prisma.review.aggregate({ _avg: { rating: true }, where: { revieweeId: userId } })
+  const reviewCount = await prisma.review.count({ where: { revieweeId: userId } })
   const applicationCounts = await prisma.jobApplication.groupBy({ by: ['status'], where: { workerId: userId }, _count: { _all: true } })
   const appMap = { pending: 0, accepted: 0, completed: 0, cancelled: 0 }
   applicationCounts.forEach((r) => { appMap[r.status] = r._count._all })
@@ -69,8 +68,7 @@ async function getMeDto(userId) {
     isEmployer: user.isEmployer,
     workerProfile: user.employee ? { bio: user.employee.bio, skills: user.employee.skills, dob: user.employee.dob, gender: user.employee.gender } : null,
     employerProfile: user.employer ? { companyName: user.employer.companyName, companyAddress: user.employer.companyAddress } : null,
-    ratingAvg: ratingAgg._avg.rating || 0,
-    ratingCount,
+    reviewCount,
     applicationCounts: appMap,
     jobCounts,
     unreadNotifications,
