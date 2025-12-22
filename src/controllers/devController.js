@@ -133,4 +133,91 @@ async function getMocks(req, res) {
   })
 }
 
-module.exports = { seedMocks, getMocks }
+async function setJobStatus(req, res) {
+  const id = Number(req.params.id)
+  const status = String((req.body && req.body.status) || '').toLowerCase().trim()
+  const allowed = ['open', 'full', 'ongoing', 'completed']
+  if (!allowed.includes(status)) return res.status(400).type('application/problem+json').json({ type: 'about:blank', title: 'Bad Request', status: 400, detail: 'Invalid status', instance: req.originalUrl })
+  const job = await prisma.job.findUnique({ where: { id } })
+  if (!job) return res.status(404).type('application/problem+json').json({ type: 'about:blank', title: 'Not Found', status: 404, detail: 'Job not found', instance: req.originalUrl })
+  const updated = await prisma.job.update({ where: { id }, data: { status } })
+  return res.status(200).json({ id: updated.id, status: updated.status })
+}
+
+async function mockEnglishJobs(req, res) {
+  const employerId = Number(req.query.employerId || 3)
+  const employeesParam = String(req.query.employees || '4,5')
+  const employeeIds = employeesParam.split(',').map((v) => Number(v.trim())).filter((n) => Number.isFinite(n))
+  if (!employerId || employeeIds.length === 0) return res.status(400).type('application/problem+json').json({ type: 'about:blank', title: 'Bad Request', status: 400, detail: 'Invalid employerId or employees', instance: req.originalUrl })
+
+  let employer = await prisma.user.findUnique({ where: { id: employerId } })
+  if (!employer) {
+    employer = await prisma.user.create({ data: { id: employerId, email: `employer${employerId}@gigwork.local`, passwordHash: await bcrypt.hash('Password123!', 10), isEmployer: true, isWorker: false, isVerified: true } })
+  }
+  await prisma.employerProfile.upsert({ where: { userId: employerId }, update: { companyName: `Gigwork Company ${employerId}`, companyAddress: '123 Sample Road' }, create: { userId: employerId, companyName: `Gigwork Company ${employerId}`, companyAddress: '123 Sample Road' } })
+
+  const employees = []
+  for (const eid of employeeIds) {
+    let worker = await prisma.user.findUnique({ where: { id: eid } })
+    if (!worker) {
+      worker = await prisma.user.create({ data: { id: eid, email: `employee${eid}@gigwork.local`, passwordHash: await bcrypt.hash('Password123!', 10), isEmployer: false, isWorker: true, isVerified: true } })
+    }
+    await prisma.employeeProfile.upsert({ where: { userId: eid }, update: { bio: 'Hardworking and punctual', skills: { list: ['Communication', 'Sales'] }, gender: 'other' }, create: { userId: eid, bio: 'Hardworking and punctual', skills: { list: ['Communication', 'Sales'] }, gender: 'other' } })
+    employees.push(worker)
+  }
+
+  const newJobs = []
+  for (let i = 1; i <= 10; i++) {
+    const start = new Date(Date.now() + i * 24 * 60 * 60 * 1000)
+    const job = await prisma.job.create({
+      data: {
+        employerId,
+        title: `Event Staff #${i}`,
+        description: 'Assist with event setup and booth operations',
+        startDate: start,
+        durationDays: i % 2 === 0 ? 2 : 1,
+        workerQuota: 2,
+        salary: 450000,
+        type: 'event',
+        status: 'open',
+        sessions: {
+          create: [
+            { sessionDate: start, startTime: new Date(start.getTime() + 9 * 60 * 60 * 1000), endTime: new Date(start.getTime() + 17 * 60 * 60 * 1000) },
+            { sessionDate: new Date(start.getTime() + 24 * 60 * 60 * 1000), startTime: new Date(start.getTime() + 24 * 60 * 60 * 1000 + 9 * 60 * 60 * 1000), endTime: new Date(start.getTime() + 24 * 60 * 60 * 1000 + 17 * 60 * 60 * 1000) },
+          ],
+        },
+        skills: { create: [{ skillName: 'Communication' }, { skillName: 'Sales' }, { skillName: 'Setup' }] },
+      },
+    })
+    await prisma.jobLocation.create({ data: { jobId: job.id, province: 'Hanoi', city: 'Hanoi', ward: null, address: 'National Convention Center' } })
+    await prisma.job.update({ where: { id: job.id }, data: { locationId: job.id } })
+    newJobs.push(job)
+  }
+
+  const apps = []
+  for (const job of newJobs) {
+    for (const worker of employees) {
+      const a = await prisma.jobApplication.create({ data: { jobId: job.id, workerId: worker.id, status: 'pending' } })
+      apps.push(a)
+    }
+  }
+
+  const completedJob = newJobs[0]
+  await prisma.job.update({ where: { id: completedJob.id }, data: { status: 'completed' } })
+  const completedApp = await prisma.jobApplication.findFirst({ where: { jobId: completedJob.id, workerId: employees[0].id } })
+  if (completedApp) {
+    await prisma.jobApplication.update({ where: { id: completedApp.id }, data: { status: 'completed', isComplete: true, isPaid: true } })
+    await prisma.review.upsert({ where: { jobId_reviewerId: { jobId: completedJob.id, reviewerId: employerId } }, update: {}, create: { jobId: completedJob.id, reviewerId: employerId, revieweeId: employees[0].id, rating: 5, comment: 'Excellent performance and communication' } })
+    await prisma.review.upsert({ where: { jobId_reviewerId: { jobId: completedJob.id, reviewerId: employees[0].id } }, update: {}, create: { jobId: completedJob.id, reviewerId: employees[0].id, revieweeId: employerId, rating: 5, comment: 'Clear instructions and timely payment' } })
+  }
+
+  return res.status(201).json({
+    employer: { id: employerId, email: employer.email },
+    employees: employees.map((w) => ({ id: w.id, email: w.email })),
+    jobs: newJobs.map((j) => ({ id: j.id, title: j.title, status: j.status })),
+    applications: apps.map((a) => ({ id: a.id, jobId: a.jobId, workerId: a.workerId, status: a.status })),
+    completedJob: { id: completedJob.id },
+  })
+}
+
+module.exports = { seedMocks, getMocks, setJobStatus, mockEnglishJobs }

@@ -15,6 +15,7 @@ const swaggerUi = require('swagger-ui-express')
 const path = require('path')
 const fs = require('fs')
 
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule)
   const origins = (process.env.CORS_ORIGIN || '').split(',').map((s) => s.trim()).filter(Boolean)
@@ -26,6 +27,12 @@ async function bootstrap() {
   http.use(express.json())
   http.use(express.urlencoded({ extended: true }))
   http.use(cors({ origin: origins.length > 0 ? origins : true, credentials: true, methods: ['GET','HEAD','PUT','PATCH','POST','DELETE','OPTIONS'] }))
+  const httpServer: any = app.getHttpServer()
+  if (httpServer && typeof httpServer.setTimeout === 'function') {
+    httpServer.setTimeout(150000)
+    httpServer.requestTimeout = 150000
+    httpServer.headersTimeout = 170000
+  }
   http.use(userRoutes)
   http.use(jobsRoutes)
   http.use(applicationsRoutes)
