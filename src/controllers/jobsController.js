@@ -61,10 +61,4 @@ async function updateLocation(req, res) {
   return res.status(200).json(data)
 }
 
-async function updateStatus(req, res) {
-  const status = req.body && req.body.status
-  const data = await Jobs.updateStatus(req.user.id, Number(req.params.id), status)
-  return res.status(200).json(data)
-}
-
-module.exports = { list, listAll, detail, create, update, remove, addSession, sessions, addSkills, getLocation, updateLocation, updateStatus }
+module.exports = { list, listAll, detail, create, update, remove, addSession, sessions, addSkills, getLocation, updateLocation }

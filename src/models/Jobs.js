@@ -117,6 +117,13 @@ async function list(query) {
     status: computeStatus(j),
     companyName: j.employer && j.employer.employer ? j.employer.employer.companyName : null,
   }))
+  
+  // Read-Repair: update DB if status changed
+  const toUpdate = withStatus.filter((j, i) => j.status !== items[i].status)
+  if (toUpdate.length > 0) {
+    await Promise.all(toUpdate.map((j) => prisma.job.update({ where: { id: j.id }, data: { status: j.status } })))
+  }
+
   return { items: withStatus, meta: { total, page, size, filters: query || {}, sort: orderBy } }
 }
 
@@ -143,13 +150,20 @@ async function listAll() {
     const accepted = Number(mapAccepted[job.id] || 0)
     return accepted >= job.workerQuota ? 'full' : 'open'
   }
-  return items
+  const result = items
     .map((j) => ({
       ...j,
       status: computeStatus(j),
       companyName: j.employer && j.employer.employer ? j.employer.employer.companyName : null,
     }))
-    .filter((j) => j.status === 'open' || j.status === 'full')
+
+  // Read-Repair: update DB if status changed
+  const toUpdate = result.filter((j, i) => j.status !== items[i].status)
+  if (toUpdate.length > 0) {
+    await Promise.all(toUpdate.map((j) => prisma.job.update({ where: { id: j.id }, data: { status: j.status } })))
+  }
+
+  return result.filter((j) => j.status === 'open' || j.status === 'full')
 }
 
 async function detail(id) {
@@ -176,6 +190,11 @@ async function detail(id) {
     const accepted = await prisma.jobApplication.count({ where: { jobId: id, status: 'accepted' } })
     status = accepted >= job.workerQuota ? 'full' : 'open'
   }
+  
+  if (status !== job.status) {
+    await prisma.job.update({ where: { id }, data: { status } })
+  }
+
   return {
     ...job,
     status,
@@ -200,16 +219,6 @@ async function updateJobStatus(jobId) {
     await prisma.job.update({ where: { id: jobId }, data: { status: newStatus } })
   }
   return newStatus
-}
-
-async function updateStatus(userId, jobId, status) {
-  const job = await prisma.job.findUnique({ where: { id: jobId } })
-  const employer = await prisma.employerProfile.findUnique({ where: { userId } })
-  if (!job || !employer || job.employerId !== userId) throw httpError(403, 'Forbidden')
-  const valid = ['open', 'full', 'ongoing', 'completed']
-  if (!valid.includes(status)) throw httpError(400, 'Invalid status')
-  const updated = await prisma.job.update({ where: { id: jobId }, data: { status } })
-  return updated
 }
 
 async function create(userId, data) {
@@ -482,4 +491,4 @@ async function updateLocation(userId, jobId, body) {
   return out
 }
 
-module.exports = { list, listAll, detail, create, update, remove, addSession, sessions, addSkills, getLocation, updateLocation, updateJobStatus, updateStatus }
+module.exports = { list, listAll, detail, create, update, remove, addSession, sessions, addSkills, getLocation, updateLocation, updateJobStatus }
