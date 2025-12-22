@@ -104,6 +104,7 @@ async function list(query) {
   const acceptedByJob = await prisma.jobApplication.groupBy({ by: ['jobId'], where: { jobId: { in: ids }, status: 'accepted' }, _count: { jobId: true } })
   const mapAccepted = Object.fromEntries(acceptedByJob.map((r) => [r.jobId, r._count.jobId]))
   const computeStatus = (job) => {
+    if (job.status === 'completed') return 'completed'
     const end = new Date(job.startDate)
     end.setDate(end.getDate() + Number(job.durationDays || 1))
     if (now > end) return 'completed'
@@ -134,6 +135,7 @@ async function listAll() {
   const acceptedByJob = await prisma.jobApplication.groupBy({ by: ['jobId'], where: { jobId: { in: ids }, status: 'accepted' }, _count: { jobId: true } })
   const mapAccepted = Object.fromEntries(acceptedByJob.map((r) => [r.jobId, r._count.jobId]))
   const computeStatus = (job) => {
+    if (job.status === 'completed') return 'completed'
     const end = new Date(job.startDate)
     end.setDate(end.getDate() + Number(job.durationDays || 1))
     if (now > end) return 'completed'
@@ -161,6 +163,9 @@ async function detail(id) {
     },
   })
   if (!job) return null
+  if (job.status === 'completed') {
+    return { ...job, companyName: job.employer && job.employer.employer ? job.employer.employer.companyName : null }
+  }
   const now = new Date()
   const end = new Date(job.startDate)
   end.setDate(end.getDate() + Number(job.durationDays || 1))
@@ -195,6 +200,16 @@ async function updateJobStatus(jobId) {
     await prisma.job.update({ where: { id: jobId }, data: { status: newStatus } })
   }
   return newStatus
+}
+
+async function updateStatus(userId, jobId, status) {
+  const job = await prisma.job.findUnique({ where: { id: jobId } })
+  const employer = await prisma.employerProfile.findUnique({ where: { userId } })
+  if (!job || !employer || job.employerId !== userId) throw httpError(403, 'Forbidden')
+  const valid = ['open', 'full', 'ongoing', 'completed']
+  if (!valid.includes(status)) throw httpError(400, 'Invalid status')
+  const updated = await prisma.job.update({ where: { id: jobId }, data: { status } })
+  return updated
 }
 
 async function create(userId, data) {
@@ -467,4 +482,4 @@ async function updateLocation(userId, jobId, body) {
   return out
 }
 
-module.exports = { list, listAll, detail, create, update, remove, addSession, sessions, addSkills, getLocation, updateLocation, updateJobStatus }
+module.exports = { list, listAll, detail, create, update, remove, addSession, sessions, addSkills, getLocation, updateLocation, updateJobStatus, updateStatus }
