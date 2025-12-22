@@ -104,6 +104,7 @@ async function list(query) {
   const acceptedByJob = await prisma.jobApplication.groupBy({ by: ['jobId'], where: { jobId: { in: ids }, status: 'accepted' }, _count: { jobId: true } })
   const mapAccepted = Object.fromEntries(acceptedByJob.map((r) => [r.jobId, r._count.jobId]))
   const computeStatus = (job) => {
+    if (job.status === 'completed') return 'completed'
     const end = new Date(job.startDate)
     end.setDate(end.getDate() + Number(job.durationDays || 1))
     if (now > end) return 'completed'
@@ -116,6 +117,13 @@ async function list(query) {
     status: computeStatus(j),
     companyName: j.employer && j.employer.employer ? j.employer.employer.companyName : null,
   }))
+  
+  // Read-Repair: update DB if status changed
+  const toUpdate = withStatus.filter((j, i) => j.status !== items[i].status)
+  if (toUpdate.length > 0) {
+    await Promise.all(toUpdate.map((j) => prisma.job.update({ where: { id: j.id }, data: { status: j.status } })))
+  }
+
   return { items: withStatus, meta: { total, page, size, filters: query || {}, sort: orderBy } }
 }
 
@@ -134,6 +142,7 @@ async function listAll() {
   const acceptedByJob = await prisma.jobApplication.groupBy({ by: ['jobId'], where: { jobId: { in: ids }, status: 'accepted' }, _count: { jobId: true } })
   const mapAccepted = Object.fromEntries(acceptedByJob.map((r) => [r.jobId, r._count.jobId]))
   const computeStatus = (job) => {
+    if (job.status === 'completed') return 'completed'
     const end = new Date(job.startDate)
     end.setDate(end.getDate() + Number(job.durationDays || 1))
     if (now > end) return 'completed'
@@ -141,13 +150,20 @@ async function listAll() {
     const accepted = Number(mapAccepted[job.id] || 0)
     return accepted >= job.workerQuota ? 'full' : 'open'
   }
-  return items
+  const result = items
     .map((j) => ({
       ...j,
       status: computeStatus(j),
       companyName: j.employer && j.employer.employer ? j.employer.employer.companyName : null,
     }))
-    .filter((j) => j.status === 'open' || j.status === 'full')
+
+  // Read-Repair: update DB if status changed
+  const toUpdate = result.filter((j, i) => j.status !== items[i].status)
+  if (toUpdate.length > 0) {
+    await Promise.all(toUpdate.map((j) => prisma.job.update({ where: { id: j.id }, data: { status: j.status } })))
+  }
+
+  return result.filter((j) => j.status === 'open' || j.status === 'full')
 }
 
 async function detail(id) {
@@ -161,6 +177,9 @@ async function detail(id) {
     },
   })
   if (!job) return null
+  if (job.status === 'completed') {
+    return { ...job, companyName: job.employer && job.employer.employer ? job.employer.employer.companyName : null }
+  }
   const now = new Date()
   const end = new Date(job.startDate)
   end.setDate(end.getDate() + Number(job.durationDays || 1))
@@ -171,6 +190,11 @@ async function detail(id) {
     const accepted = await prisma.jobApplication.count({ where: { jobId: id, status: 'accepted' } })
     status = accepted >= job.workerQuota ? 'full' : 'open'
   }
+  
+  if (status !== job.status) {
+    await prisma.job.update({ where: { id }, data: { status } })
+  }
+
   return {
     ...job,
     status,
