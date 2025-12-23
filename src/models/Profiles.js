@@ -3,11 +3,55 @@ const { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient()
 
 function getEmployeeById(userId) {
-  return prisma.employeeProfile.findUnique({ where: { userId } })
+  return prisma.employeeProfile.findUnique({
+    where: { userId },
+    include: {
+      user: {
+        select: {
+          reviewsTaken: {
+            orderBy: { createdAt: 'desc' },
+            include: {
+              reviewer: {
+                select: {
+                  id: true,
+                  email: true,
+                  employer: { select: { companyName: true } },
+                  employee: { select: { bio: true } },
+                  profileImages: { where: { isPrimary: true } }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  })
 }
 
 function getEmployerById(userId) {
-  return prisma.employerProfile.findUnique({ where: { userId } })
+  return prisma.employerProfile.findUnique({
+    where: { userId },
+    include: {
+      user: {
+        select: {
+          reviewsTaken: {
+            orderBy: { createdAt: 'desc' },
+            include: {
+              reviewer: {
+                select: {
+                  id: true,
+                  email: true,
+                  employer: { select: { companyName: true } },
+                  employee: { select: { bio: true } },
+                  profileImages: { where: { isPrimary: true } }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  })
 }
 
 function createEmployee(userId, body) {
@@ -54,4 +98,4 @@ function updateEmployer(userId, body) {
   })
 }
 
-module.exports = { createEmployee, updateEmployee, createEmployer, updateEmployer }
+module.exports = { getEmployeeById, getEmployerById, createEmployee, updateEmployee, createEmployer, updateEmployer }
