@@ -173,6 +173,14 @@ async function apply(userId, body) {
     e.content = { accepted, workerQuota: job.workerQuota, jobId }
     throw e
   }
+  const existing = await prisma.jobApplication.findFirst({ where: { jobId, workerId: userId } })
+  if (existing) {
+    const e = new Error('Already applied')
+    e.code = 409
+    e.errorCode = 'ALREADY_APPLIED'
+    e.content = { applicationId: existing.id }
+    throw e
+  }
   const created = await prisma.jobApplication.create({ data: { jobId, workerId: userId } })
   const employer = await prisma.employerProfile.findUnique({ where: { userId: job.employerId } })
   if (employer) {
